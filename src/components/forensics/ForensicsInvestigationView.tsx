@@ -60,10 +60,12 @@ import {
   ThreatArc
 } from '../../types';
 import { api, OSINT_PLATFORMS } from '../../services/api';
-import { LivingGlobeCanvas } from '../canvas/LivingGlobeCanvas';
+import { LivingGlobe3D } from '../canvas/LivingGlobe3D';
 import { marked } from 'marked';
 
 interface ForensicsInvestigationViewProps {
+  activeSubTab?: ForensicsSubTab;
+  onSelectSubTab?: (subTab: ForensicsSubTab) => void;
   onWeaveDossierToBrain: (dossier: ForensicCaseDossier, report: string) => void;
   onWeaveUsernameResultToBrain?: (res: UsernameCheckResult) => void;
   onWeaveIpResultToBrain?: (res: IpLookupResult) => void;
@@ -72,14 +74,21 @@ interface ForensicsInvestigationViewProps {
 }
 
 export const ForensicsInvestigationView: React.FC<ForensicsInvestigationViewProps> = ({
+  activeSubTab: propSubTab,
+  onSelectSubTab,
   onWeaveDossierToBrain,
   onWeaveUsernameResultToBrain,
   onWeaveIpResultToBrain,
   onWeavePhoneResultToBrain,
   onWeaveProfileToBrain,
 }) => {
-  // Active Sub-Tab: 'username' | 'name' | 'ip' | 'phone' | 'dossier'
-  const [activeSubTab, setActiveSubTab] = useState<ForensicsSubTab>('username');
+  // Active Sub-Tab controlled by prop or fallback to internal state
+  const [internalSubTab, setInternalSubTab] = useState<ForensicsSubTab>('username');
+  const activeSubTab = propSubTab || internalSubTab;
+  const setActiveSubTab = (tab: ForensicsSubTab) => {
+    if (onSelectSubTab) onSelectSubTab(tab);
+    setInternalSubTab(tab);
+  };
 
   // Case Metadata
   const [caseId] = useState(() => `CASE-2026-MSc-${Math.floor(1000 + Math.random() * 9000)}`);
@@ -1273,49 +1282,12 @@ Target Phone: ${phoneResult?.formattedE164 || 'N/A'}
 
                   {/* 3D Living Particle Wireframe Globe */}
                   <div className="relative w-full aspect-square rounded-2xl bg-black/80 border border-emerald-500/40 overflow-hidden flex items-center justify-center shadow-inner group">
-                    <LivingGlobeCanvas
-                      activeTargetCoords={{
-                        lat: ipResult.lat,
-                        lon: ipResult.lon,
-                        label: `${ipResult.city}, ${ipResult.countryCode}`
-                      }}
-                      threatArcs={[
-                        {
-                          id: 'arc-in-1',
-                          startLat: 52.52,
-                          startLon: 13.40,
-                          endLat: ipResult.lat,
-                          endLon: ipResult.lon,
-                          color: '#ef4444',
-                          sourceCity: 'Berlin Node',
-                          targetCity: `${ipResult.city}`,
-                          severity: 'High'
-                        },
-                        {
-                          id: 'arc-in-2',
-                          startLat: 37.77,
-                          startLon: -122.41,
-                          endLat: ipResult.lat,
-                          endLon: ipResult.lon,
-                          color: '#00f0ff',
-                          sourceCity: 'San Francisco',
-                          targetCity: `${ipResult.city}`,
-                          severity: 'Low'
-                        },
-                        {
-                          id: 'arc-in-3',
-                          startLat: 35.67,
-                          startLon: 139.65,
-                          endLat: ipResult.lat,
-                          endLon: ipResult.lon,
-                          color: '#a855f7',
-                          sourceCity: 'Tokyo Gateway',
-                          targetCity: `${ipResult.city}`,
-                          severity: 'Medium'
-                        }
-                      ]}
-                      height={340}
-                      interactive={true}
+                    <LivingGlobe3D
+                      mode="tactical"
+                      selectedCoords={[ipResult.lat, ipResult.lon]}
+                      showWilayas={true}
+                      showSatellites={true}
+                      className="w-full h-full"
                     />
 
                     {/* HUD Overlay Coordinates */}

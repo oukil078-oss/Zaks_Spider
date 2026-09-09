@@ -36,7 +36,7 @@ import {
   Sliders,
   Maximize2
 } from 'lucide-react';
-import { LivingGlobeCanvas } from '../canvas/LivingGlobeCanvas';
+import { LivingGlobe3D } from '../canvas/LivingGlobe3D';
 import { SocEvent, SocStats, ThreatArc } from '../../types';
 
 interface SocCommandCenterViewProps {
@@ -429,13 +429,12 @@ export const SocCommandCenterView: React.FC<SocCommandCenterViewProps> = ({
           </div>
 
           {/* Interactive 3D Living Globe Canvas */}
-          <div className="relative w-full h-[380px] my-2">
-            <LivingGlobeCanvas
-              activeTargetCoords={{
-                lat: 36.75,
-                lon: 3.05,
-                label: 'ALGIERS SOC BASE',
-              }}
+          <div className="relative w-full h-[400px] my-2 rounded-2xl overflow-hidden">
+            <LivingGlobe3D
+              mode="aerospace"
+              showSatellites={true}
+              showWilayas={true}
+              className="w-full h-full"
             />
           </div>
 

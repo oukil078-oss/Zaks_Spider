@@ -2,6 +2,12 @@
 // ZAK'S SPIDER — CORE SYSTEM DATA TYPES
 // ==========================================
 
+export type MainHubId = 'pentest' | 'forensics' | 'soc';
+
+export type PenTestSubTab = 'arsenal' | 'crawler' | 'vuln-news' | 'payloads';
+export type ForensicsSubTab = 'dossier' | 'username' | 'name' | 'ip' | 'phone' | 'neural-web';
+export type SocSubTab = 'overview' | 'aerospace' | 'events' | 'vectors' | 'copilot';
+
 export type SpiderTabId = 'soc' | 'forensics' | 'brain' | 'pentest' | 'crawler' | 'vuln-news' | 'copilot' | 'operator';
 
 // --- Pentest Lab & Commands Types ---
@@ -550,6 +556,55 @@ export interface FullNameProfile {
   wilaya?: string;
   probableEmails: { email: string; pattern: string; confidence: number }[];
   searchDorks: { label: string; query: string; url: string }[];
+}
+
+// --- Aerospace & Defense Center Types (Inspired by Reference Image) ---
+export interface SatelliteTelemetry {
+  id: string;
+  name: string;
+  currentSpeed: number; // km/h
+  targetSpeed: number; // km/h
+  altitude: number; // km
+  inclination: number; // deg
+  signal: 'Strong' | 'Nominal' | 'Weak';
+  frequency: string; // e.g. 45.5 MHz
+  chanceOfFailure: number; // percentage (e.g. 94%)
+  targetsDetected: number;
+  collisionAlertEta: string; // e.g. 2h 30m 13s
+  status: 'active' | 'warning' | 'standby';
+  lat: number;
+  lng: number;
+}
+
+export interface GroundTower {
+  id: string;
+  name: string;
+  location: string;
+  status: 'Active' | 'Offline' | 'Degraded';
+  loadPercent: number;
+  devicesCount: number;
+  coordinates: [number, number];
+}
+
+export interface ThreatWaveformPoint {
+  time: string;
+  value: number;
+  city?: string;
+  highlight?: boolean;
+}
+
+export interface GlobalCyberAttack {
+  id: string;
+  sourceCountry: string;
+  sourceFlag: string;
+  sourceCoords: [number, number]; // [lat, lng]
+  targetCountry: string;
+  targetFlag: string;
+  targetCoords: [number, number]; // [lat, lng]
+  threatActor: string; // e.g. 'APT29 (Cozy Bear)', 'Lazarus Group', 'Volt Typhoon', 'LockBit 3.0'
+  vector: string; // e.g. 'Zero-Day RCE', 'DDoS Volumetric', 'Supply-Chain Injection', 'BGP Hijacking'
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+  timestamp: string;
 }
 
 
