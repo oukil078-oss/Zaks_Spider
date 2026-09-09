@@ -5,7 +5,7 @@
 export type MainHubId = 'pentest' | 'forensics' | 'soc';
 
 export type PenTestSubTab = 'arsenal' | 'crawler' | 'vuln-news' | 'payloads';
-export type ForensicsSubTab = 'dossier' | 'username' | 'name' | 'ip' | 'phone' | 'neural-web';
+export type ForensicsSubTab = 'username' | 'name' | 'phone' | 'gis' | 'dossier';
 export type SocSubTab = 'overview' | 'aerospace' | 'events' | 'vectors' | 'copilot';
 
 export type SpiderTabId = 'soc' | 'forensics' | 'brain' | 'pentest' | 'crawler' | 'vuln-news' | 'copilot' | 'operator';
@@ -339,8 +339,6 @@ export interface OperatorProfile {
 // ==========================================
 // FORENSICS & OSINT INVESTIGATION MATRIX TYPES
 // ==========================================
-
-export type ForensicsSubTab = 'username' | 'name' | 'ip' | 'phone' | 'dossier';
 
 export type OsintCategory = 'Developer' | 'Social' | 'Media' | 'Gaming' | 'Portfolio';
 

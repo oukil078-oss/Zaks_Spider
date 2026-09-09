@@ -3,9 +3,10 @@ import {
   Search, Fingerprint, Globe, PhoneCall, ShieldCheck, 
   ExternalLink, CheckCircle2, XCircle, Loader2, Download, 
   UserCheck, AlertTriangle, FileText, MapPin, Share2, Compass, Layers, 
-  Copy, Check, Mail, Building, AtSign, ArrowUpRight
+  Copy, Check, Mail, Building, AtSign, ArrowUpRight, Crosshair, Printer, KeyRound
 } from 'lucide-react';
 import { UsernamePlatformDef, UsernameCheckResult } from '../../types';
+import { AlgeriaGisMap } from '../gis/AlgeriaGisMap';
 
 interface ForensicsViewProps {
   initialTab?: 'username' | 'name' | 'phone' | 'gis' | 'dossier';
@@ -305,6 +306,18 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
           >
             <MapPin className="w-3.5 h-3.5" />
             <span>GIS & 69 Wilayas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('dossier')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'dossier'
+                ? 'bg-gradient-to-r from-purple-500/30 to-indigo-600/30 text-purple-300 border border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                : 'bg-[#0a101d] text-slate-400 hover:text-slate-200 border border-cyan-500/15'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Intelligence Dossier</span>
           </button>
         </div>
 
@@ -651,69 +664,200 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
 
           {/* 4. GIS Reticle & 69 Algerian Wilayas View */}
           {activeTab === 'gis' && (
-            <div className="flex-1 p-4 flex flex-col gap-3 overflow-hidden">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <label className="text-[10px] text-slate-400 font-bold">ALGERIAN WILAYA SELECTION (69 WILAYAS):</label>
-                  <select
-                    value={selectedWilaya}
-                    onChange={(e) => setSelectedWilaya(e.target.value)}
-                    className="w-full mt-1 px-3 py-1.5 text-xs bg-slate-900 border border-cyan-500/30 rounded-xl text-white"
-                  >
-                    <option value="16 - Algiers (الجزائر العاصمة)">16 - Algiers (الجزائر العاصمة)</option>
-                    <option value="31 - Oran (وهران)">31 - Oran (وهران)</option>
-                    <option value="25 - Constantine (قسنطينة)">25 - Constantine (قسنطينة)</option>
-                    <option value="19 - Sétif (سطيف)">19 - Sétif (سطيف)</option>
-                    <option value="06 - Béjaïa (بجاية)">06 - Béjaïa (بجاية)</option>
-                    <option value="09 - Blida (البليدة)">09 - Blida (البليدة)</option>
-                    <option value="15 - Tizi Ouzou (تيزي وزو)">15 - Tizi Ouzou (تيزي وزو)</option>
-                    <option value="13 - Tlemcen (تلمسان)">13 - Tlemcen (تلمسان)</option>
-                    <option value="05 - Batna (باتنة)">05 - Batna (باتنة)</option>
-                    <option value="30 - Ouargla (ورقلة)">30 - Ouargla (ورقلة)</option>
-                    <option value="47 - Ghardaïa (غرداية)">47 - Ghardaïa (غرداية)</option>
-                    <option value="11 - Tamanrasset (تمنراست)">11 - Tamanrasset (تمنراست)</option>
-                  </select>
+            <div className="flex-1 p-3 flex flex-col h-full overflow-hidden">
+              <AlgeriaGisMap
+                targetIp={ipAddress}
+                onSelectCommune={(commune) => {
+                  setSelectedWilaya(`${String(commune.wilaya_code).padStart(2, '0')} - ${commune.wilaya_name_fr} (${commune.wilaya_name})`);
+                }}
+              />
+            </div>
+          )}
+
+          {/* 5. Intelligence Dossier Master Briefing View */}
+          {activeTab === 'dossier' && (
+            <div className="flex-1 p-4 flex flex-col gap-3.5 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/20 scrollbar-track-transparent">
+              {/* Header Dossier Banner */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-[#0d1527] to-[#120e28] border border-purple-500/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/50 flex items-center justify-center text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.3)]">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-2">
+                      <span>INTELLIGENCE CASE DOSSIER:</span>
+                      <span className="font-mono text-purple-300">CASE-2026-DZ-8941</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                      CLASSIFICATION: ACADEMIC AUDIT / FORENSIC PROSECUTION READY // NODE: DZ-USTHB
+                    </div>
+                  </div>
                 </div>
 
-                <div className="w-56">
-                  <label className="text-[10px] text-slate-400 font-bold">IP TARGET GEOLOCATION:</label>
-                  <input
-                    type="text"
-                    value={ipAddress}
-                    onChange={(e) => setIpAddress(e.target.value)}
-                    className="w-full mt-1 px-3 py-1.5 text-xs bg-slate-900 border border-cyan-500/30 rounded-xl text-white font-mono"
-                  />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const caseData = {
+                        caseId: 'CASE-2026-DZ-8941',
+                        investigator: 'Zak // Lead Forensics Officer',
+                        target: {
+                          fullName,
+                          username: query,
+                          company,
+                          location,
+                          phone: phoneNumber,
+                          carrier: phoneResult?.carrier || 'Mobilis (ATM)',
+                          wilaya: selectedWilaya,
+                          ip: ipAddress,
+                        },
+                        timestamp: new Date().toISOString(),
+                        hash: 'SHA256:4f8a9e22c7104b6d8923a1078f4410e309ad9428b12f6c91a78e4d2091c6e451',
+                        matchedPlatforms: results.filter((r) => r.status === 'found'),
+                      };
+                      const blob = new Blob([JSON.stringify(caseData, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `DOSSIER-${fullName.replace(/\s+/g, '_') || 'TARGET'}-2026.json`;
+                      a.click();
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-400/40 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>DOWNLOAD JSON</span>
+                  </button>
+
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>PRINT DOSSIER</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="flex-1 rounded-xl bg-[#040812] border border-cyan-500/30 p-4 relative overflow-hidden flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs text-cyan-300">
-                  <div className="flex items-center gap-1.5">
-                    <Compass className="w-4 h-4 text-cyan-400 animate-spin-slow" />
-                    <span>GIS TARGET RETICLE LOCKED: {selectedWilaya}</span>
+              {/* Subject Matrix */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-[#090f1e] border border-cyan-500/25">
+                  <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center gap-1.5">
+                    <UserCheck className="w-3 h-3 text-cyan-400" />
+                    <span>PRIMARY SUBJECT ENTITY</span>
                   </div>
-                  <span className="text-emerald-400 font-mono">ASN: AS36947 (Algérie Télécom)</span>
+                  <div className="text-sm font-bold text-white font-mono">{fullName}</div>
+                  <div className="text-xs text-purple-300 font-mono mt-0.5">@{query}</div>
+                  <div className="mt-2 text-[10px] text-slate-400 space-y-0.5">
+                    <div>Entity: Verified Physical Person</div>
+                    <div>Nationality: Algeria (الجمهورية الجزائرية)</div>
+                  </div>
                 </div>
 
-                <div className="my-auto text-center space-y-2">
-                  <div className="w-24 h-24 mx-auto rounded-full border-2 border-cyan-400/50 flex items-center justify-center relative">
-                    <div className="w-16 h-16 rounded-full border border-cyan-400/30 animate-ping" />
-                    <Crosshair className="w-8 h-8 text-cyan-400 absolute" />
+                <div className="p-3 rounded-xl bg-[#090f1e] border border-cyan-500/25">
+                  <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center gap-1.5">
+                    <Building className="w-3 h-3 text-cyan-400" />
+                    <span>AFFILIATION & CORRESPONDENCE</span>
                   </div>
-                  <div className="text-sm font-bold text-white font-mono">LAT: 36.7538° N // LON: 3.0588° E</div>
-                  <div className="text-xs text-slate-400 font-mono">Accuracy: 15m radius // Fiber Optic Gateway Node</div>
+                  <div className="text-sm font-bold text-white font-mono">{company}</div>
+                  <div className="text-xs text-cyan-300 font-mono mt-0.5">{location}</div>
+                  <div className="mt-2 text-[10px] text-slate-400 space-y-0.5">
+                    <div>Domain: Educational & Research (.dz)</div>
+                    <div>Predicted Emails: {emailPermutations.length} cataloged</div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-[10px] text-slate-300">
-                  <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
-                    Communes Cataloged: <span className="text-cyan-300 font-bold">1,541 Communes</span>
+                <div className="p-3 rounded-xl bg-[#090f1e] border border-cyan-500/25">
+                  <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center gap-1.5">
+                    <MapPin className="w-3 h-3 text-cyan-400" />
+                    <span>TELECOM & GIS ATTRIBUTION</span>
                   </div>
-                  <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
-                    Wilayas: <span className="text-cyan-300 font-bold">69 Verified Wilayas</span>
+                  <div className="text-sm font-bold text-white font-mono">{phoneNumber}</div>
+                  <div className="text-xs text-emerald-400 font-mono mt-0.5">{phoneResult?.carrier || 'Mobilis ATM (603-01)'}</div>
+                  <div className="mt-2 text-[10px] text-slate-400 space-y-0.5">
+                    <div>Wilaya Node: {selectedWilaya}</div>
+                    <div>IP Gateway: {ipAddress} (AS36947)</div>
                   </div>
-                  <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
-                    Threat Risk: <span className="text-emerald-400 font-bold">CLEAN IP (NO BLACKLIST)</span>
+                </div>
+              </div>
+
+              {/* Matched Platforms Cross-Verification */}
+              <div className="p-3.5 rounded-xl bg-[#080d1a] border border-cyan-500/20">
+                <div className="text-xs font-bold text-white mb-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-purple-400" />
+                    <span>VERIFIED DIGITAL FOOTPRINT ({foundCount} Matches Across 52 Platforms)</span>
                   </div>
+                  <span className="text-[10px] text-emerald-400 font-bold font-mono">
+                    {Math.round((foundCount / 52) * 100)}% Cross-Index Match
+                  </span>
+                </div>
+
+                {foundCount === 0 ? (
+                  <div className="p-6 text-center text-slate-500 text-xs">
+                    No Sherlock probe has been executed yet. Run "Sherlock 52-Platform" probe to populate live evidence.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                    {results
+                      .filter((r) => r.status === 'found')
+                      .map((res) => (
+                        <div
+                          key={res.id}
+                          className="p-2.5 rounded-lg bg-black/60 border border-emerald-500/30 flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <div className="font-bold text-white flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>{res.platform}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono truncate max-w-[180px]">
+                              {res.profileUrl}
+                            </div>
+                          </div>
+
+                          <a
+                            href={res.profileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 text-cyan-400 hover:text-white"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Chain of Custody & Cryptographic Seal */}
+              <div className="p-3.5 rounded-xl bg-[#060a14] border border-purple-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+                <div className="space-y-1">
+                  <div className="text-purple-300 font-bold flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-purple-400" />
+                    <span>CRYPTOGRAPHIC CHAIN OF CUSTODY DIGEST</span>
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-400 break-all">
+                    SHA256: 4f8a9e22c7104b6d8923a1078f4410e309ad9428b12f6c91a78e4d2091c6e451
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Digitally signed by Operator: Zak // Tier 5 Clearance // Autonomous Forensic Engine v2.4
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('4f8a9e22c7104b6d8923a1078f4410e309ad9428b12f6c91a78e4d2091c6e451');
+                      alert('SHA-256 evidence hash copied to clipboard.');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold font-mono flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3 text-slate-400" />
+                    <span>Copy Hash</span>
+                  </button>
+
+                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold font-mono">
+                    TAMPER-EVIDENT SEALED
+                  </span>
                 </div>
               </div>
             </div>

@@ -1,0 +1,554 @@
+[
+  {
+    "code": 1,
+    "name": "أدرار",
+    "name_fr": "Adrar",
+    "communesCount": 16,
+    "lng": 0.1636,
+    "lat": 27.4216
+  },
+  {
+    "code": 2,
+    "name": "الشلف",
+    "name_fr": "Chlef",
+    "communesCount": 35,
+    "lng": 1.27,
+    "lat": 36.2611
+  },
+  {
+    "code": 3,
+    "name": "الأغواط",
+    "name_fr": "Laghouat",
+    "communesCount": 15,
+    "lng": 2.7244,
+    "lat": 33.8141
+  },
+  {
+    "code": 4,
+    "name": "أم البواقي",
+    "name_fr": "Oum El Bouaghi",
+    "communesCount": 29,
+    "lng": 7.0542,
+    "lat": 35.8495
+  },
+  {
+    "code": 5,
+    "name": "باتنة",
+    "name_fr": "Batna",
+    "communesCount": 53,
+    "lng": 6.0948,
+    "lat": 35.5197
+  },
+  {
+    "code": 6,
+    "name": "بجاية",
+    "name_fr": "Béjaïa",
+    "communesCount": 52,
+    "lng": 4.8331,
+    "lat": 36.5841
+  },
+  {
+    "code": 7,
+    "name": "بسكرة",
+    "name_fr": "Biskra",
+    "communesCount": 22,
+    "lng": 5.7542,
+    "lat": 34.7337
+  },
+  {
+    "code": 8,
+    "name": "بشار",
+    "name_fr": "Béchar",
+    "communesCount": 12,
+    "lng": -2.4445,
+    "lat": 31.3303
+  },
+  {
+    "code": 9,
+    "name": "البليدة",
+    "name_fr": "Blida",
+    "communesCount": 25,
+    "lng": 2.913,
+    "lat": 36.5163
+  },
+  {
+    "code": 10,
+    "name": "البويرة",
+    "name_fr": "Bouira",
+    "communesCount": 45,
+    "lng": 3.841,
+    "lat": 36.3241
+  },
+  {
+    "code": 11,
+    "name": "تمنراست",
+    "name_fr": "Tamanrasset",
+    "communesCount": 5,
+    "lng": 5.5469,
+    "lat": 23.2754
+  },
+  {
+    "code": 12,
+    "name": "تبسة",
+    "name_fr": "Tébessa",
+    "communesCount": 24,
+    "lng": 7.9562,
+    "lat": 35.4119
+  },
+  {
+    "code": 13,
+    "name": "تلمسان",
+    "name_fr": "Tlemcen",
+    "communesCount": 45,
+    "lng": -1.5181,
+    "lat": 34.9647
+  },
+  {
+    "code": 14,
+    "name": "تيارت",
+    "name_fr": "Tiaret",
+    "communesCount": 36,
+    "lng": 1.3205,
+    "lat": 35.1586
+  },
+  {
+    "code": 15,
+    "name": "تيزي وزو",
+    "name_fr": "Tizi Ouzou",
+    "communesCount": 67,
+    "lng": 4.201,
+    "lat": 36.6473
+  },
+  {
+    "code": 16,
+    "name": "الجزائر",
+    "name_fr": "Alger",
+    "communesCount": 57,
+    "lng": 3.0734,
+    "lat": 36.73
+  },
+  {
+    "code": 17,
+    "name": "الجلفة",
+    "name_fr": "Djelfa",
+    "communesCount": 18,
+    "lng": 3.0643,
+    "lat": 34.6447
+  },
+  {
+    "code": 18,
+    "name": "جيجل",
+    "name_fr": "Jijel",
+    "communesCount": 28,
+    "lng": 5.9208,
+    "lat": 36.7065
+  },
+  {
+    "code": 19,
+    "name": "سطيف",
+    "name_fr": "Sétif",
+    "communesCount": 60,
+    "lng": 5.382,
+    "lat": 36.2121
+  },
+  {
+    "code": 20,
+    "name": "سعيدة",
+    "name_fr": "Saïda",
+    "communesCount": 16,
+    "lng": 0.1794,
+    "lat": 34.8447
+  },
+  {
+    "code": 21,
+    "name": "سكيكدة",
+    "name_fr": "Skikda",
+    "communesCount": 38,
+    "lng": 6.7626,
+    "lat": 36.7952
+  },
+  {
+    "code": 22,
+    "name": "سيدي بلعباس",
+    "name_fr": "Sidi Bel Abbès",
+    "communesCount": 52,
+    "lng": -0.5758,
+    "lat": 34.983
+  },
+  {
+    "code": 23,
+    "name": "عنابة",
+    "name_fr": "Annaba",
+    "communesCount": 12,
+    "lng": 7.6164,
+    "lat": 36.8182
+  },
+  {
+    "code": 24,
+    "name": "قالمة",
+    "name_fr": "Guelma",
+    "communesCount": 34,
+    "lng": 7.4296,
+    "lat": 36.4276
+  },
+  {
+    "code": 25,
+    "name": "قسنطينة",
+    "name_fr": "Constantine",
+    "communesCount": 12,
+    "lng": 6.645,
+    "lat": 36.4011
+  },
+  {
+    "code": 26,
+    "name": "المدية",
+    "name_fr": "Médéa",
+    "communesCount": 51,
+    "lng": 3.1182,
+    "lat": 36.1359
+  },
+  {
+    "code": 27,
+    "name": "مستغانم",
+    "name_fr": "Mostaganem",
+    "communesCount": 32,
+    "lng": 0.3067,
+    "lat": 35.964
+  },
+  {
+    "code": 28,
+    "name": "المسيلة",
+    "name_fr": "M'Sila",
+    "communesCount": 34,
+    "lng": 4.3888,
+    "lat": 35.5004
+  },
+  {
+    "code": 29,
+    "name": "معسكر",
+    "name_fr": "Mascara",
+    "communesCount": 47,
+    "lng": 0.1279,
+    "lat": 35.382
+  },
+  {
+    "code": 30,
+    "name": "ورقلة",
+    "name_fr": "Ouargla",
+    "communesCount": 19,
+    "lng": 6.0052,
+    "lat": 32.5585
+  },
+  {
+    "code": 31,
+    "name": "وهران",
+    "name_fr": "Oran",
+    "communesCount": 26,
+    "lng": -0.5464,
+    "lat": 35.7015
+  },
+  {
+    "code": 32,
+    "name": "البيض",
+    "name_fr": "El Bayadh",
+    "communesCount": 14,
+    "lng": 0.7838,
+    "lat": 33.9523
+  },
+  {
+    "code": 33,
+    "name": "إليزي",
+    "name_fr": "Illizi",
+    "communesCount": 4,
+    "lng": 8.5667,
+    "lat": 28.1594
+  },
+  {
+    "code": 34,
+    "name": "برج بوعريريج",
+    "name_fr": "Bordj Bou Arreridj",
+    "communesCount": 34,
+    "lng": 4.7589,
+    "lat": 36.1003
+  },
+  {
+    "code": 35,
+    "name": "بومرداس",
+    "name_fr": "Boumerdès",
+    "communesCount": 32,
+    "lng": 3.6083,
+    "lat": 36.7372
+  },
+  {
+    "code": 36,
+    "name": "الطارف",
+    "name_fr": "El Tarf",
+    "communesCount": 24,
+    "lng": 8.1219,
+    "lat": 36.7209
+  },
+  {
+    "code": 37,
+    "name": "تندوف",
+    "name_fr": "Tindouf",
+    "communesCount": 2,
+    "lng": -7.5531,
+    "lat": 28.1415
+  },
+  {
+    "code": 38,
+    "name": "تيسمسيلت",
+    "name_fr": "Tissemsilt",
+    "communesCount": 22,
+    "lng": 1.7448,
+    "lat": 35.7822
+  },
+  {
+    "code": 39,
+    "name": "الوادي",
+    "name_fr": "El Oued",
+    "communesCount": 22,
+    "lng": 6.8728,
+    "lat": 33.4297
+  },
+  {
+    "code": 40,
+    "name": "خنشلة",
+    "name_fr": "Khenchela",
+    "communesCount": 21,
+    "lng": 6.9795,
+    "lat": 35.3176
+  },
+  {
+    "code": 41,
+    "name": "سوق أهراس",
+    "name_fr": "Souk Ahras",
+    "communesCount": 26,
+    "lng": 7.8736,
+    "lat": 36.1749
+  },
+  {
+    "code": 42,
+    "name": "تيبازة",
+    "name_fr": "Tipaza",
+    "communesCount": 28,
+    "lng": 2.3367,
+    "lat": 36.5628
+  },
+  {
+    "code": 43,
+    "name": "ميلة",
+    "name_fr": "Mila",
+    "communesCount": 32,
+    "lng": 6.1442,
+    "lat": 36.3694
+  },
+  {
+    "code": 44,
+    "name": "عين الدفلة",
+    "name_fr": "Aïn Defla",
+    "communesCount": 36,
+    "lng": 2.0921,
+    "lat": 36.2291
+  },
+  {
+    "code": 45,
+    "name": "النعامة",
+    "name_fr": "Naâma",
+    "communesCount": 12,
+    "lng": -0.5771,
+    "lat": 33.1203
+  },
+  {
+    "code": 46,
+    "name": "عين تيموشنت",
+    "name_fr": "Aïn Témouchent",
+    "communesCount": 28,
+    "lng": -1.116,
+    "lat": 35.3356
+  },
+  {
+    "code": 47,
+    "name": "غرداية",
+    "name_fr": "Ghardaïa",
+    "communesCount": 10,
+    "lng": 3.8168,
+    "lat": 32.4401
+  },
+  {
+    "code": 48,
+    "name": "غليزان",
+    "name_fr": "Relizane",
+    "communesCount": 38,
+    "lng": 0.783,
+    "lat": 35.8362
+  },
+  {
+    "code": 49,
+    "name": "تيميمون",
+    "name_fr": "Timimoun",
+    "communesCount": 10,
+    "lng": 0.0489,
+    "lat": 29.0556
+  },
+  {
+    "code": 50,
+    "name": "برج باجي مختار",
+    "name_fr": "Bordj Badji Mokhtar",
+    "communesCount": 2,
+    "lng": 1.3764,
+    "lat": 20.8832
+  },
+  {
+    "code": 51,
+    "name": "أولاد جلال",
+    "name_fr": "Ouled Djellal",
+    "communesCount": 6,
+    "lng": 4.8558,
+    "lat": 34.374
+  },
+  {
+    "code": 52,
+    "name": "بني عباس",
+    "name_fr": "Béni Abbès",
+    "communesCount": 9,
+    "lng": -1.3834,
+    "lat": 29.6277
+  },
+  {
+    "code": 53,
+    "name": "عين صالح",
+    "name_fr": "Ain Salah",
+    "communesCount": 3,
+    "lng": 2.614,
+    "lat": 27.2523
+  },
+  {
+    "code": 54,
+    "name": "عين قزام",
+    "name_fr": "Ain Guezzam",
+    "communesCount": 2,
+    "lng": 4.3674,
+    "lat": 19.7615
+  },
+  {
+    "code": 55,
+    "name": "تقرت",
+    "name_fr": "Touggourt",
+    "communesCount": 2,
+    "lng": 6.0017,
+    "lat": 32.9867
+  },
+  {
+    "code": 56,
+    "name": "جانت",
+    "name_fr": "Djanet",
+    "communesCount": 2,
+    "lng": 8.9593,
+    "lat": 24.7177
+  },
+  {
+    "code": 57,
+    "name": "المغير",
+    "name_fr": "El Meghaier",
+    "communesCount": 8,
+    "lng": 6.0038,
+    "lat": 33.7899
+  },
+  {
+    "code": 58,
+    "name": "المنيعة",
+    "name_fr": "El Menia",
+    "communesCount": 3,
+    "lng": 3.159,
+    "lat": 30.911
+  },
+  {
+    "code": 59,
+    "name": "أفلو",
+    "name_fr": "Aflou",
+    "communesCount": 9,
+    "lng": 2.1373,
+    "lat": 34.0272
+  },
+  {
+    "code": 60,
+    "name": "بريكة",
+    "name_fr": "Barika",
+    "communesCount": 8,
+    "lng": 5.4229,
+    "lat": 35.2841
+  },
+  {
+    "code": 61,
+    "name": "القنطرة",
+    "name_fr": "El Kantara",
+    "communesCount": 5,
+    "lng": 5.7463,
+    "lat": 35.0461
+  },
+  {
+    "code": 62,
+    "name": "بئر العاتر",
+    "name_fr": "Bir El Ater",
+    "communesCount": 4,
+    "lng": 7.7329,
+    "lat": 34.7288
+  },
+  {
+    "code": 63,
+    "name": "العريشة",
+    "name_fr": "El Aricha",
+    "communesCount": 8,
+    "lng": -1.1022,
+    "lat": 34.551
+  },
+  {
+    "code": 64,
+    "name": "قصر الشلالة",
+    "name_fr": "Ksar Chellala",
+    "communesCount": 6,
+    "lng": 2.2216,
+    "lat": 35.2968
+  },
+  {
+    "code": 65,
+    "name": "عين وسارة",
+    "name_fr": "Ain Oussera",
+    "communesCount": 10,
+    "lng": 2.9907,
+    "lat": 35.422
+  },
+  {
+    "code": 66,
+    "name": "مسعد",
+    "name_fr": "Messaad",
+    "communesCount": 8,
+    "lng": 3.8022,
+    "lat": 34.0292
+  },
+  {
+    "code": 67,
+    "name": "قصر البخاري",
+    "name_fr": "Ksar El Boukhari",
+    "communesCount": 13,
+    "lng": 2.861,
+    "lat": 35.875
+  },
+  {
+    "code": 68,
+    "name": "بوسعادة",
+    "name_fr": "Boussaâda",
+    "communesCount": 13,
+    "lng": 4.3293,
+    "lat": 35.2253
+  },
+  {
+    "code": 69,
+    "name": "الأبيض سيدي الشيخ",
+    "name_fr": "El Abiodh Sidi Cheikh",
+    "communesCount": 8,
+    "lng": 0.6939,
+    "lat": 33.0442
+  }
+]
