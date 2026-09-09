@@ -1,20 +1,56 @@
 // ==========================================
-// ZAK'S SPIDER — WIDOW AI REASONING ENGINE (/api/ai)
-// Threat Analysis, Payload Generator & Second Brain Chat
+// ZAK'S SPIDER — WIDOW AI INTELLIGENCE ENGINE (/api/ai)
+// Powered by GPT-6 Astra, Qwen 3.8, DeepSeek & Gemini
+// Specialized for Offensive Security, CTF Triage & Vulnerability Intelligence
 // ==========================================
 
-import type { ScrapedResult, ThreatAnalysis, ChatMessage } from '../src/types';
+import type { ScrapedResult, ThreatAnalysis, ChatMessage, VulnNewsItem } from '../src/types';
+
+const DEFAULT_EXPLABS_KEY = 'xpl_41ece4e40287e26c45ddd9d9f91ee0c2c3fa8de3';
+const EXPLABS_ENDPOINT = 'https://api.experientiallabs.ai/v1/chat/completions';
+
+// Persona System Prompts
+const PERSONA_PROMPTS: Record<string, string> = {
+  'widow-lead': `You are Widow-AI Master, the lead offensive cybersecurity research intelligence of Zak's Spider.
+You possess god-tier, mythos-level intelligence in network reconnaissance, perimeter vulnerability analysis, Web application auditing (OWASP Top 10), and Active Directory attack surfaces.
+You operate as the trusted pentest buddy and advisor to operator Zakarya Oukil (eJPTv2 candidate & systems architect).
+Format all operational directives with clear tactical steps, bash/python command syntax, parameter definitions, and defensive remediation guidance.
+Always be direct, precise, tactical, and uncompromising in technical accuracy.`,
+
+  'ctf-re': `You are Cipher-Byte, elite CTF Master and Binary Reverse Engineer for Zak's Spider.
+You specialize in CTF challenge triage across Web, Cryptography, Steganography, Forensics, Reverse Engineering (Ghidra/Radare2), and Pwn.
+When presented with challenge artifacts, memory dumps, or decompiled code, provide acute analytical insight, identify edge cases, suggest payload methodology, and uncover flags systematically.
+Maintain a high-energy, hacker-grade terminal demeanor.`,
+
+  'blue-team': `You are Sentinel-Core, the Principal Defensive Blue Teamer and Threat Hunter of Zak's Spider.
+You specialize in detection engineering (Sigma, YARA, Snort), incident response, zero-day CVE mitigation, system hardening, and forensic log analysis.
+You prioritize resilience, least privilege, zero-trust architectures, and bulletproof remediation blueprints.`,
+
+  'code-auditor': `You are Audit-Prime, the Senior Static & Dynamic Code Security Auditor of Zak's Spider.
+You analyze source code (C/C++, Python, Go, TypeScript, Rust, Solidity) for memory corruption, injection vectors, logic race conditions, SSRF, authorization bypasses, and insecure deserialization.
+Deliver precise line-by-line vulnerability dissections and production-ready remediation patches.`,
+};
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  const { action, item, messages, context } = req.body || {};
+  const { 
+    action, 
+    item, 
+    cve, 
+    messages, 
+    model = 'gpt-6-astra', 
+    persona = 'widow-lead',
+    attachments = []
+  } = req.body || {};
+
+  const apiKey = process.env.EXPLABS_API_KEY || DEFAULT_EXPLABS_KEY;
 
   try {
     // ----------------------------------------
-    // Action 1: Deep Threat Analysis
+    // Action 1: Deep Threat Analysis of Scraped Target
     // ----------------------------------------
     if (action === 'analyze_threat') {
       const scrapedItem = item as ScrapedResult;
@@ -22,70 +58,72 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ success: false, error: 'Missing scraped item' });
       }
 
-      // Check for Gemini API Key or OpenAI API Key
-      const geminiKey = process.env.GEMINI_API_KEY;
-      const openAiKey = process.env.OPENAI_API_KEY;
-
-      if (geminiKey) {
-        try {
-          const prompt = `You are Widow-AI, elite cybersecurity threat intelligence analyst for Zak's Spider.
-Analyze this reconnaissance footprint:
+      const prompt = `Perform an elite cybersecurity threat assessment for this target perimeter:
 TARGET: ${scrapedItem.url} (${scrapedItem.domain})
 STATUS: ${scrapedItem.metadata.status}
 SERVER: ${scrapedItem.metadata.server || 'Unknown'}
-EMAILS (${scrapedItem.emails.length}): ${scrapedItem.emails.slice(0, 5).join(', ')}
-SUBDOMAINS (${scrapedItem.subdomains.length}): ${scrapedItem.subdomains.slice(0, 8).join(', ')}
-ROBOTS DISALLOW: ${scrapedItem.osint?.robots_txt?.disallow?.slice(0, 6).join(', ') || 'None'}
-HEADERS AUDIT GRADE: ${scrapedItem.osint?.security_headers?.grade || 'N/A'}
+EMAILS (${scrapedItem.emails.length}): ${scrapedItem.emails.slice(0, 8).join(', ')}
+SUBDOMAINS (${scrapedItem.subdomains.length}): ${scrapedItem.subdomains.slice(0, 12).join(', ')}
+ROBOTS DISALLOW: ${scrapedItem.osint?.robots_txt?.disallow?.slice(0, 8).join(', ') || 'None'}
+HEADERS AUDIT GRADE: ${scrapedItem.osint?.security_headers?.grade || 'N/A'} (Score: ${scrapedItem.osint?.security_headers?.score || 0}/100)
+TECHNOLOGIES: ${scrapedItem.osint?.technologies?.map(t => `${t.name} (${t.category})`).join(', ') || 'Unknown'}
 
-Provide:
-1. Threat Level: (CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL)
-2. Executive Perimeter Summary
-3. Key Exploitation Attack Vectors
+Return a structured report with:
+1. Executive Perimeter Summary
+2. Threat Level (CRITICAL, HIGH, MEDIUM, LOW)
+3. Key Attack Vectors
 4. Top 4 Defensive Remediation Steps`;
 
-          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-            }),
+      try {
+        const response = await fetch(EXPLABS_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-6-astra',
+            messages: [
+              { role: 'system', content: PERSONA_PROMPTS['widow-lead'] },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (response.ok) {
+          const json = await response.json();
+          const text = json.choices?.[0]?.message?.content || '';
+          let threatLevel: ThreatAnalysis['threatLevel'] = 'MEDIUM';
+          if (text.includes('CRITICAL')) threatLevel = 'CRITICAL';
+          else if (text.includes('HIGH')) threatLevel = 'HIGH';
+          else if (text.includes('LOW')) threatLevel = 'LOW';
+
+          return res.status(200).json({
+            success: true,
+            analysis: {
+              summary: `GPT-6 Astra Intelligence Assessment: Perimeter rated ${threatLevel}.`,
+              threatLevel,
+              attackSurface: scrapedItem.subdomains.length > 0 ? scrapedItem.subdomains : [scrapedItem.domain],
+              vulnerabilities: [
+                `Security Headers Grade: ${scrapedItem.osint?.security_headers?.grade || 'N/A'}`,
+                `${scrapedItem.emails.length} harvested corporate emails for phishing vectors`,
+                `${scrapedItem.subdomains.length} mapped perimeter hostnames`,
+              ],
+              recommendations: [
+                'Enforce strict Content-Security-Policy and HSTS max-age headers.',
+                'Obfuscate or restrict directory listings identified via robots.txt.',
+                'Sanitize HTTP server banner tokens to conceal version signatures.',
+              ],
+              rawAnalysis: text,
+            },
           });
-
-          if (aiRes.ok) {
-            const data = await aiRes.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            let threatLevel: ThreatAnalysis['threatLevel'] = 'MEDIUM';
-            if (text.includes('CRITICAL')) threatLevel = 'CRITICAL';
-            else if (text.includes('HIGH')) threatLevel = 'HIGH';
-            else if (text.includes('LOW')) threatLevel = 'LOW';
-
-            return res.status(200).json({
-              success: true,
-              analysis: {
-                summary: `Evaluated by Gemini AI Engine: Perimeter posture rated ${threatLevel}.`,
-                threatLevel,
-                attackSurface: scrapedItem.subdomains.length > 0 ? scrapedItem.subdomains : [scrapedItem.domain],
-                vulnerabilities: [
-                  `Missing defensive security headers (Grade: ${scrapedItem.osint?.security_headers?.grade || 'N/A'})`,
-                  `${scrapedItem.emails.length} exposed email addresses harvested`,
-                  `${scrapedItem.subdomains.length} mapped subdomains expanding attack perimeter`,
-                ],
-                recommendations: [
-                  'Implement strict Content-Security-Policy (CSP) headers.',
-                  'Enforce TLS 1.3 and HSTS across all discovered subdomains.',
-                  'Hide web server signature banners to impede automated reconnaissance.',
-                ],
-                rawAnalysis: text,
-              },
-            });
-          }
-        } catch (err) {
-          console.warn('[AI] Gemini fallback error:', err);
         }
+      } catch (e) {
+        console.warn('[AI] Explabs fetch error, falling back to heuristics:', e);
       }
 
-      // Default Heuristic Threat Intelligence Engine
+      // Fallback heuristics
       const sensitiveCount = scrapedItem.osint?.sensitive_files?.filter(f => f.status === 200).length || 0;
       let level: ThreatAnalysis['threatLevel'] = 'MEDIUM';
       if (sensitiveCount >= 2 || scrapedItem.osint?.security_headers?.grade === 'F') level = 'CRITICAL';
@@ -94,64 +132,163 @@ Provide:
       return res.status(200).json({
         success: true,
         analysis: {
-          summary: `Automated Arachnid Threat Matrix for ${scrapedItem.domain}. Posture: ${level}.`,
+          summary: `Automated Spider Threat Matrix for ${scrapedItem.domain}. Posture: ${level}.`,
           threatLevel: level,
           attackSurface: scrapedItem.subdomains.length > 0 ? scrapedItem.subdomains : [scrapedItem.domain],
           vulnerabilities: [
-            `Security Headers Grade: ${scrapedItem.osint?.security_headers?.grade || 'C'} (${scrapedItem.osint?.security_headers?.failCount || 0} failed checks)`,
-            `${scrapedItem.emails.length} personnel email accounts mapped for phishing OSINT`,
-            `${scrapedItem.subdomains.length} hostnames in attack surface`,
+            `Security Headers: Grade ${scrapedItem.osint?.security_headers?.grade || 'C'}`,
+            `${scrapedItem.emails.length} exposed emails discovered`,
+            `${scrapedItem.subdomains.length} subdomains cataloged`,
           ],
           recommendations: [
-            'Audit robots.txt disallow directives to prevent sensitive endpoint enumeration.',
-            'Deploy Cloudflare email protection obfuscation.',
-            'Add Strict-Transport-Security: max-age=31536000; includeSubDomains.',
+            'Audit perimeter DNS zone transfers and SSL/TLS certificates.',
+            'Deploy Cloudflare email obfuscation on exposed pages.',
+            'Implement defensive CSP and X-Frame-Options headers.',
           ],
-          rawAnalysis: `### 🕷️ Arachnid Perimeter Assessment\n\n- **Target:** ${scrapedItem.url}\n- **Host Type:** ${scrapedItem.osint?.is_ip ? 'Direct IP' : 'FQDN Domain'}\n- **Web Server:** \`${scrapedItem.metadata.server || 'Unknown'}\`\n- **Emails Found:** ${scrapedItem.emails.length}\n- **Discovered Subdomains:** ${scrapedItem.subdomains.length}\n\nAutomated analysis recommends focusing fuzzing on discovered subdomains and validating CORS / CSP policies.`,
+          rawAnalysis: `### 🕷️ Automated Threat Summary\n\nPerimeter analysis indicates target ${scrapedItem.domain} exposes ${scrapedItem.subdomains.length} endpoints.`,
         },
       });
     }
 
     // ----------------------------------------
-    // Action 2: Second Brain Widow-AI Chat
+    // Action 2: Deep CVE Vulnerability Triage
     // ----------------------------------------
-    if (action === 'chat') {
-      const chatHistory = (messages || []) as ChatMessage[];
-      const lastMessage = chatHistory[chatHistory.length - 1]?.content || '';
-
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (geminiKey) {
-        try {
-          const sysPrompt = `You are Widow-AI, the autonomous cybersecurity and reconnaissance assistant of Zak's Spider.
-You assist with penetration testing, network discovery, web exploitation, and organizing the operator's Second Brain.
-Be concise, tactical, and format code snippets in bash or python.`;
-
-          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [
-                { parts: [{ text: `${sysPrompt}\n\nOperator: ${lastMessage}` }] },
-              ],
-            }),
-          });
-
-          if (aiRes.ok) {
-            const data = await aiRes.json();
-            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            return res.status(200).json({ success: true, reply });
-          }
-        } catch {}
+    if (action === 'analyze_cve') {
+      const vuln = cve as VulnNewsItem;
+      if (!vuln) {
+        return res.status(400).json({ success: false, error: 'Missing CVE object' });
       }
 
-      // Offline Tactical Chat Fallback
+      const cvePrompt = `Analyze this confirmed cybersecurity vulnerability:
+CVE ID: ${vuln.cveID}
+TITLE: ${vuln.vulnerabilityName}
+VENDOR / PRODUCT: ${vuln.vendorProject} - ${vuln.product}
+DATE ADDED TO CISA KEV: ${vuln.dateAdded}
+RANSOMWARE USE: ${vuln.knownRansomwareCampaignUse || 'Unknown'}
+DESCRIPTION: ${vuln.shortDescription}
+REQUIRED ACTION: ${vuln.requiredAction || 'Apply vendor updates'}
+
+Provide:
+1. Technical Root Cause & Flaw Class (CWE)
+2. Threat Actor Exploitation Mechanisms (How it is weaponized in the wild)
+3. Immediate Triage & Detection (Log queries, Sigma indicators, or network detection)
+4. Comprehensive Remediation & Defense in Depth Guidance`;
+
+      try {
+        const response = await fetch(EXPLABS_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-6-astra',
+            messages: [
+              { role: 'system', content: PERSONA_PROMPTS['widow-lead'] },
+              { role: 'user', content: cvePrompt }
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (response.ok) {
+          const json = await response.json();
+          return res.status(200).json({
+            success: true,
+            analysis: json.choices?.[0]?.message?.content || 'Analysis generated.',
+            model: 'gpt-6-astra',
+          });
+        }
+      } catch (err) {
+        console.warn('[AI] CVE analysis error:', err);
+      }
+
       return res.status(200).json({
         success: true,
-        reply: `🕷️ **Widow-AI Cyber Intelligence:**\n\nI have received your tactical query: "${lastMessage}".\n\n**Recommended Action Plan:**\n1. **Reconnaissance:** Run a full Nmap scan and Gobuster directory sweep against target.\n2. **Attack Surface:** Check discovered endpoints against known CVE databases.\n3. **Knowledge Base:** Use the Second Brain tab to weave notes with \`[[wikilinks]]\` for rapid correlation.`,
+        analysis: `### 🛡️ Triage Dossier: ${vuln.cveID}\n\n- **Target Entity:** ${vuln.vendorProject} ${vuln.product}\n- **Known Ransomware Exploitation:** ${vuln.knownRansomwareCampaignUse || 'Investigating'}\n- **Summary:** ${vuln.shortDescription}\n\n**Action Required:** ${vuln.requiredAction || 'Apply patches immediately.'}`,
+        model: 'heuristic',
       });
     }
 
-    return res.status(400).json({ success: false, error: 'Unknown action' });
+    // ----------------------------------------
+    // Action 3: Chat with AI Pentest Buddy (Multimodal & Context-Rich)
+    // ----------------------------------------
+    if (action === 'chat') {
+      const history = (messages || []) as ChatMessage[];
+      if (history.length === 0) {
+        return res.status(400).json({ success: false, error: 'No messages provided' });
+      }
+
+      const selectedPersonaPrompt = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS['widow-lead'];
+
+      // Format attachments into prompt context
+      let attachmentsContext = '';
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        attachmentsContext = '\n\n=== ATTACHED OPERATOR FILES & CONTEXT ===\n' + attachments.map((att: any, i: number) => {
+          return `[ATTACHMENT ${i + 1}: ${att.name} (${att.type})]\n${att.content ? (att.content.length > 6000 ? att.content.substring(0, 6000) + '\n...[TRUNCATED FOR CONTEXT]' : att.content) : '[Binary/Image Asset]'}\n`;
+        }).join('\n') + '=== END ATTACHMENTS ===\n';
+      }
+
+      const formattedMessages = [
+        { role: 'system', content: selectedPersonaPrompt },
+        ...history.slice(-10).map((m, idx) => {
+          // If it's the last message and we have attachments, append the attachments context
+          if (idx === history.slice(-10).length - 1 && m.role === 'user' && attachmentsContext) {
+            return {
+              role: m.role,
+              content: `${m.content}${attachmentsContext}`,
+            };
+          }
+          return {
+            role: m.role,
+            content: m.content,
+          };
+        }),
+      ];
+
+      try {
+        const response = await fetch(EXPLABS_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: model || 'gpt-6-astra',
+            messages: formattedMessages,
+            temperature: 0.3,
+          }),
+        });
+
+        if (response.ok) {
+          const json = await response.json();
+          const reply = json.choices?.[0]?.message?.content || 'No response generated.';
+          const reasoning = json.choices?.[0]?.message?.reasoning || json.choices?.[0]?.reasoning || null;
+          const tokensUsed = json.usage?.total_tokens || 0;
+
+          return res.status(200).json({
+            success: true,
+            reply,
+            reasoning,
+            tokensUsed,
+            model: json.model || model,
+          });
+        } else {
+          const errText = await response.text();
+          console.warn('[AI] Provider error:', response.status, errText);
+          throw new Error(`Provider API error (${response.status}): ${errText}`);
+        }
+      } catch (err: any) {
+        console.warn('[AI] Chat request failed, using emergency fallback:', err);
+        return res.status(200).json({
+          success: true,
+          reply: `🕷️ **Widow-AI Tactical Dispatch:**\n\nI have received your inquiry. While the remote uplink is synchronizing with **${model}**, here is your immediate operational assessment:\n\n1. **Methodology:** Ensure structured enumeration before active verification.\n2. **Triage:** Inspect target responses, headers, and protocol parameters for anomalies.\n3. **Persistence:** Document all indicators of compromise and findings in your Second Brain.\n\n*(Error detail: ${err.message || 'Remote API sync'})*`,
+          model: `${model} (fallback)`,
+        });
+      }
+    }
+
+    return res.status(400).json({ success: false, error: 'Invalid action specified' });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
   }

@@ -9,7 +9,10 @@ import {
   CybersecNewsItem, 
   BrainNoteItem, 
   PentestCommandItem,
-  ChatMessage
+  ChatMessage,
+  VulnNewsItem,
+  CopilotAttachment,
+  CopilotPersonaId
 } from '../types';
 
 const API_BASE = '/api';
@@ -79,6 +82,92 @@ export const api = {
       success: true,
       items: DEFAULT_CVE_NEWS,
     };
+  },
+
+  // ----------------------------------------
+  // Live Automated CISA KEV & Zero-Day Radar
+  // ----------------------------------------
+  async getVulnNews(params?: {
+    query?: string;
+    vendor?: string;
+    severity?: string;
+    ransomware?: string;
+    force?: boolean;
+  }): Promise<{ success: boolean; count: number; totalCatalog: number; lastUpdated: string; items: VulnNewsItem[] }> {
+    const qs = new URLSearchParams();
+    if (params?.query) qs.set('query', params.query);
+    if (params?.vendor) qs.set('vendor', params.vendor);
+    if (params?.severity) qs.set('severity', params.severity);
+    if (params?.ransomware) qs.set('ransomware', params.ransomware);
+    if (params?.force) qs.set('force', 'true');
+
+    try {
+      const res = await fetch(`${API_BASE}/news?${qs.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.items)) {
+          return json;
+        }
+      }
+    } catch (e) {
+      console.warn('[API] Fetching Vuln News from server failed, falling back:', e);
+    }
+
+    return {
+      success: true,
+      count: DEFAULT_VULN_NEWS.length,
+      totalCatalog: DEFAULT_VULN_NEWS.length,
+      lastUpdated: new Date().toISOString(),
+      items: DEFAULT_VULN_NEWS,
+    };
+  },
+
+  async analyzeCveWithAi(cve: VulnNewsItem): Promise<string> {
+    try {
+      const res = await fetch(`${API_BASE}/ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'analyze_cve', cve }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.analysis) return json.analysis;
+      }
+    } catch (err) {
+      console.warn('[API] AI CVE analysis failed:', err);
+    }
+
+    // Direct fallback to ExperientialLabs API if serverless route timed out
+    try {
+      const directRes = await fetch('https://api.experientiallabs.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer xpl_41ece4e40287e26c45ddd9d9f91ee0c2c3fa8de3',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-6-astra',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are Widow-AI, lead offensive and defensive cybersecurity research intelligence for Zak\'s Spider. Provide rapid, expert triage and remediation guidance for confirmed CVEs.'
+            },
+            {
+              role: 'user',
+              content: `Analyze vulnerability ${cve.cveID} (${cve.vulnerabilityName}) on ${cve.vendorProject} ${cve.product}. Description: ${cve.shortDescription}. Known Ransomware Use: ${cve.knownRansomwareCampaignUse}. Provide technical root cause, attack vectors, and step-by-step remediation.`
+            }
+          ],
+          temperature: 0.2,
+        }),
+      });
+
+      if (directRes.ok) {
+        const directJson = await directRes.json();
+        return directJson.choices?.[0]?.message?.content || 'Analysis generated.';
+      }
+    } catch {}
+
+    return `### 🛡️ Automated Triage Dossier: ${cve.cveID}\n\n- **Target:** ${cve.vendorProject} - ${cve.product}\n- **Known Ransomware Exploitation:** ${cve.knownRansomwareCampaignUse || 'Under Investigation'}\n- **Summary:** ${cve.shortDescription}\n\n**Action Required:** ${cve.requiredAction || 'Apply vendor security updates immediately.'}`;
   },
 
   // ----------------------------------------
@@ -204,6 +293,106 @@ export const api = {
       return `🕸️ **Arachnid Threat Assessment:**\n\nCross-referencing observed banners with known CVE databases. Recommended protocol:\n1. Run Gobuster or Feroxbuster for hidden web directories (` + '`/admin`' + `, ` + '`/.git`' + `, ` + '`/.env`' + `).\n2. Audit missing Security Headers (HSTS, CSP, X-Frame-Options).\n3. Check for default credentials on discovered services.`;
     }
     return `🕷️ **Widow-AI Online:** I am analyzing the web matrix. I can assist with:\n- Executing OSINT and spider reconnaissance on target domains\n- Crafting tailored eJPTv2 / OSCP attack payloads\n- Weaving discovered vulnerabilities into your interactive Spiderweb Knowledge Brain.`;
+  },
+
+  // ----------------------------------------
+  // Multimodal AI Pentest Buddy (GPT-6 Astra, Qwen 3.8, etc.)
+  // ----------------------------------------
+  async chatWithBuddy(params: {
+    messages: ChatMessage[];
+    model: string;
+    personaId: CopilotPersonaId;
+    attachments?: CopilotAttachment[];
+  }): Promise<{ reply: string; reasoning?: string; tokensUsed?: number; model: string }> {
+    const { messages, model, personaId, attachments = [] } = params;
+
+    // 1. Try Vercel Serverless /api/ai
+    try {
+      const res = await fetch(`${API_BASE}/ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'chat',
+          messages,
+          model,
+          persona: personaId,
+          attachments,
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.reply) {
+          return {
+            reply: json.reply,
+            reasoning: json.reasoning,
+            tokensUsed: json.tokensUsed,
+            model: json.model || model,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[API] Serverless chat error, attempting direct provider uplink:', e);
+    }
+
+    // 2. Direct browser uplink to ExperientialLabs API
+    try {
+      const PERSONA_PROMPTS: Record<string, string> = {
+        'widow-lead': "You are Widow-AI Master, the lead offensive cybersecurity research intelligence of Zak's Spider. You possess mythos-level intelligence in reconnaissance, penetration testing, CTFs, and defensive auditing. You are the trusted cyber buddy of operator Zakarya Oukil. Always be tactical, precise, and format commands in clean code blocks.",
+        'ctf-re': "You are Cipher-Byte, elite CTF Master and Binary Reverse Engineer for Zak's Spider. You specialize in CTF challenge triage across Web, Cryptography, Forensics, Reverse Engineering, and Pwn. Deliver acute, hacker-grade analysis and step-by-step methodologies.",
+        'blue-team': "You are Sentinel-Core, Principal Defensive Blue Teamer and Threat Hunter. You specialize in detection engineering (Sigma/YARA), zero-day mitigation, hardening, and forensic log triage.",
+        'code-auditor': "You are Audit-Prime, Senior Source Code Security Auditor. You dissect code for memory corruption, injection vectors, logic race conditions, and deserialization flaws with production-ready mitigation patches.",
+      };
+
+      let attachmentsContext = '';
+      if (attachments && attachments.length > 0) {
+        attachmentsContext = '\n\n=== ATTACHED OPERATOR FILES & CONTEXT ===\n' + attachments.map((att, i) => {
+          return `[ATTACHMENT ${i + 1}: ${att.name} (${att.type})]\n${att.content ? (att.content.length > 6000 ? att.content.substring(0, 6000) + '\n...[TRUNCATED]' : att.content) : '[Binary/Image Asset]'}\n`;
+        }).join('\n') + '=== END ATTACHMENTS ===\n';
+      }
+
+      const formattedMessages = [
+        { role: 'system', content: PERSONA_PROMPTS[personaId] || PERSONA_PROMPTS['widow-lead'] },
+        ...messages.slice(-8).map((m, idx) => {
+          if (idx === messages.slice(-8).length - 1 && m.role === 'user' && attachmentsContext) {
+            return { role: m.role, content: `${m.content}${attachmentsContext}` };
+          }
+          return { role: m.role, content: m.content };
+        }),
+      ];
+
+      const directRes = await fetch('https://api.experientiallabs.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer xpl_41ece4e40287e26c45ddd9d9f91ee0c2c3fa8de3',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model || 'gpt-6-astra',
+          messages: formattedMessages,
+          temperature: 0.3,
+        }),
+      });
+
+      if (directRes.ok) {
+        const directJson = await directRes.json();
+        return {
+          reply: directJson.choices?.[0]?.message?.content || 'No response generated.',
+          reasoning: directJson.choices?.[0]?.message?.reasoning || directJson.choices?.[0]?.reasoning || undefined,
+          tokensUsed: directJson.usage?.total_tokens || 0,
+          model: directJson.model || model,
+        };
+      }
+    } catch (err: any) {
+      console.warn('[API] Direct provider uplink error:', err);
+    }
+
+    // 3. High-tier offline fallback
+    const lastMsg = messages[messages.length - 1]?.content || '';
+    return {
+      reply: `🕷️ **Widow-AI Copilot Active:**\n\nI have received your cyber inquiry: "${lastMsg.slice(0, 80)}..."\n\n**Operational Guidance:**\n1. **Enumeration Phase:** Map all open attack surfaces using service versioning and script scans.\n2. **Validation:** Validate discovered endpoints against current CISA KEV advisories.\n3. **Knowledge Capture:** Document artifacts and indicators in your Neural Second Brain.\n\n*Running under resilient local fallback.*`,
+      model: `${model} (offline fallback)`,
+    };
   }
 };
 
@@ -584,6 +773,204 @@ export const DEFAULT_PENTEST_ARSENAL: PentestCommandItem[] = [
       { name: 'PORT', placeholder: '4444', description: 'Listening port' },
     ],
   },
+  {
+    id: 'cmd-rustscan-fast',
+    title: 'Rustscan Hyper-Speed Port Scanner',
+    tool: 'rustscan',
+    category: 'Recon & Scanning',
+    platform: 'Cross-Platform',
+    command: 'rustscan -a <TARGET_IP> --ulimit 5000 -- -sC -sV -oN rustscan_out.txt',
+    description: 'Scans all 65,535 ports in under 3 seconds using asynchronous Rust sockets, then pipes open ports directly to Nmap.',
+    tags: ['rustscan', 'recon', 'fast', 'ports'],
+    parameters: [
+      { name: 'TARGET_IP', placeholder: '10.10.10.50', description: 'Target IP' },
+    ],
+  },
+  {
+    id: 'cmd-nikto-web',
+    title: 'Nikto Comprehensive Web Server Vulnerability Scan',
+    tool: 'nikto',
+    category: 'Web Exploitation',
+    platform: 'Cross-Platform',
+    command: 'nikto -h <TARGET_URL> -C all -output nikto_scan.txt',
+    description: 'Scans web servers for dangerous files, outdated server software, insecure HTTP methods, and configuration flaws.',
+    tags: ['nikto', 'web', 'vulnerability', 'server'],
+    parameters: [
+      { name: 'TARGET_URL', placeholder: 'http://10.10.10.50', description: 'Target Web App URL' },
+    ],
+  },
+  {
+    id: 'cmd-wfuzz-params',
+    title: 'Wfuzz Hidden GET/POST Parameter Discovery',
+    tool: 'wfuzz',
+    category: 'Web Exploitation',
+    platform: 'Cross-Platform',
+    command: 'wfuzz -c -z file,/usr/share/wordlists/dirb/common.txt --hc 404 "<TARGET_URL>/?FUZZ=test"',
+    description: 'Brute-forces hidden URL query parameters to locate hidden logic, debug switches, and injection entrypoints.',
+    tags: ['wfuzz', 'web', 'parameters', 'fuzzing'],
+    parameters: [
+      { name: 'TARGET_URL', placeholder: 'http://10.10.10.50/view.php', description: 'Target Endpoint' },
+    ],
+  },
+  {
+    id: 'cmd-sqlmap-batch',
+    title: 'SQLMap Automated Database Injection & Schema Enumeration',
+    tool: 'sqlmap',
+    category: 'Web Exploitation',
+    platform: 'Cross-Platform',
+    command: 'sqlmap -u "<TARGET_URL>" --batch --dbs --random-agent --tamper=space2comment',
+    description: 'Detects and exploits SQL injection vulnerabilities to extract database management system (DBMS) schemas.',
+    tags: ['sqlmap', 'sqli', 'database', 'injection'],
+    parameters: [
+      { name: 'TARGET_URL', placeholder: 'http://10.10.10.50/search?id=1', description: 'Target parameter URL' },
+    ],
+  },
+  {
+    id: 'cmd-suid-search',
+    title: 'Linux SUID Binary Enumeration (Root Escalation Vectors)',
+    tool: 'find',
+    category: 'Privilege Escalation',
+    platform: 'Linux',
+    command: 'find / -perm -u=s -type f 2>/dev/null',
+    description: 'Discovers binaries that execute with elevated root permissions via the SetUID bit.',
+    tags: ['suid', 'privesc', 'linux', 'enumeration'],
+    parameters: [],
+  },
+  {
+    id: 'cmd-sudo-perms',
+    title: 'Linux Sudo Privileges & GTFOBins Audit',
+    tool: 'sudo',
+    category: 'Privilege Escalation',
+    platform: 'Linux',
+    command: 'sudo -l',
+    description: 'Lists all commands the current unprivileged user is permitted to execute as superuser, cross-reference with GTFOBins.',
+    tags: ['sudo', 'privesc', 'linux'],
+    parameters: [],
+  },
+  {
+    id: 'cmd-linux-capabilities',
+    title: 'Linux File Capabilities Inspection',
+    tool: 'getcap',
+    category: 'Privilege Escalation',
+    platform: 'Linux',
+    command: 'getcap -r / 2>/dev/null',
+    description: 'Finds binaries with POSIX capabilities assigned (such as cap_setuid, cap_net_raw) that bypass root restrictions.',
+    tags: ['capabilities', 'privesc', 'linux'],
+    parameters: [],
+  },
+  {
+    id: 'cmd-ssh-local-forward',
+    title: 'SSH Local Port Forwarding Tunnel',
+    tool: 'ssh',
+    category: 'Network & Pivoting',
+    platform: 'Cross-Platform',
+    command: 'ssh -L <LOCAL_PORT>:127.0.0.1:<REMOTE_PORT> <USERNAME>@<TARGET_IP> -N -f',
+    description: 'Forwards a port from target internal loopback (e.g. database, admin service) to your local attacker machine.',
+    tags: ['ssh', 'tunnel', 'portforward', 'pivot'],
+    parameters: [
+      { name: 'LOCAL_PORT', placeholder: '8080', description: 'Port on attacker machine' },
+      { name: 'REMOTE_PORT', placeholder: '80', description: 'Port on internal server' },
+      { name: 'USERNAME', placeholder: 'user', description: 'SSH user' },
+      { name: 'TARGET_IP', placeholder: '10.10.10.50', description: 'Pivot host IP' },
+    ],
+  },
+  {
+    id: 'cmd-ssh-dynamic-socks',
+    title: 'SSH Dynamic SOCKS5 Proxy Pivot',
+    tool: 'ssh',
+    category: 'Network & Pivoting',
+    platform: 'Cross-Platform',
+    command: 'ssh -D 1080 -q -C -N <USERNAME>@<TARGET_IP>',
+    description: 'Spawns a local SOCKS5 proxy on port 1080 to route tools like proxychains, nmap, or browser directly into the target internal network.',
+    tags: ['ssh', 'socks5', 'proxychains', 'pivoting'],
+    parameters: [
+      { name: 'USERNAME', placeholder: 'operator', description: 'SSH user' },
+      { name: 'TARGET_IP', placeholder: '10.10.10.50', description: 'Pivot machine IP' },
+    ],
+  },
+  {
+    id: 'cmd-netcat-listener',
+    title: 'Netcat Secure Interactive Shell Listener',
+    tool: 'nc',
+    category: 'Network & Pivoting',
+    platform: 'Cross-Platform',
+    command: 'nc -lvnp <PORT>',
+    description: 'Standard Netcat TCP listener waiting for incoming reverse connections on specified port.',
+    tags: ['nc', 'listener', 'reverse-shell'],
+    parameters: [
+      { name: 'PORT', placeholder: '4444', description: 'Port to listen on' },
+    ],
+  },
+  {
+    id: 'cmd-socat-pty-listener',
+    title: 'Socat Fully Interactive TTY Reverse Listener',
+    tool: 'socat',
+    category: 'Network & Pivoting',
+    platform: 'Linux',
+    command: 'socat file:`tty`,raw,echo=0 tcp-listen:<PORT>',
+    description: 'Catches reverse connections with native Ctrl+C support, tab-completion, and full terminal row/column resizing.',
+    tags: ['socat', 'tty', 'shell', 'interactive'],
+    parameters: [
+      { name: 'PORT', placeholder: '4444', description: 'Listening port' },
+    ],
+  },
+  {
+    id: 'cmd-impacket-kerberoast',
+    title: 'Active Directory Kerberoasting Attack (GetUserSPNs)',
+    tool: 'impacket',
+    category: 'Active Directory & Windows',
+    platform: 'Linux',
+    command: 'impacket-GetUserSPNs <DOMAIN>/<USERNAME>:\'<PASSWORD>\' -dc-ip <DC_HOST> -request -outputfile kerberoast_hashes.txt',
+    description: 'Extracts service ticket hashes (TGS-REP) for Service Principal Names (SPNs) in Active Directory for offline password cracking.',
+    tags: ['impacket', 'kerberos', 'kerberoasting', 'active-directory'],
+    parameters: [
+      { name: 'DOMAIN', placeholder: 'corp.local', description: 'AD Domain' },
+      { name: 'USERNAME', placeholder: 'jdoe', description: 'Valid domain username' },
+      { name: 'PASSWORD', placeholder: 'Password123!', description: 'Valid user password' },
+      { name: 'DC_HOST', placeholder: '10.10.10.1', description: 'Domain Controller IP' },
+    ],
+  },
+  {
+    id: 'cmd-crackmapexec-smb',
+    title: 'CrackMapExec SMB Credential & Share Audit',
+    tool: 'crackmapexec',
+    category: 'Active Directory & Windows',
+    platform: 'Cross-Platform',
+    command: 'crackmapexec smb <TARGET_IP> -u \'<USERNAME>\' -p \'<PASSWORD>\' --shares',
+    description: 'Validates credentials across target SMB shares and identifies read/write access permissions.',
+    tags: ['crackmapexec', 'smb', 'windows', 'audit'],
+    parameters: [
+      { name: 'TARGET_IP', placeholder: '10.10.10.0/24', description: 'Target host or CIDR subnet' },
+      { name: 'USERNAME', placeholder: 'admin', description: 'User to test' },
+      { name: 'PASSWORD', placeholder: 'Summer2026!', description: 'Password to verify' },
+    ],
+  },
+  {
+    id: 'cmd-john-cracker',
+    title: 'John the Ripper Multi-Format Password Cracker',
+    tool: 'john',
+    category: 'Password Cracking',
+    platform: 'Cross-Platform',
+    command: 'john --wordlist=/usr/share/wordlists/rockyou.txt <HASH_FILE>',
+    description: 'Auto-detects hash algorithm format (MD5, SHA512, bcrypt, zip, kdbx) and launches rule-based dictionary cracking.',
+    tags: ['john', 'passwords', 'hashes', 'cracking'],
+    parameters: [
+      { name: 'HASH_FILE', placeholder: 'hashes.txt', description: 'Target hash file' },
+    ],
+  },
+  {
+    id: 'cmd-tshark-traffic',
+    title: 'TShark Terminal Packet Capture & Protocol Analysis',
+    tool: 'tshark',
+    category: 'Recon & Scanning',
+    platform: 'Linux',
+    command: 'tshark -i any -f "tcp port <PORT>" -Y "http or dns" -w capture_audit.pcap',
+    description: 'CLI Wireshark sniffer capturing unencrypted protocol traffic and DNS queries on specified interfaces.',
+    tags: ['tshark', 'wireshark', 'network', 'forensics'],
+    parameters: [
+      { name: 'PORT', placeholder: '80', description: 'Port filter' },
+    ],
+  },
 ];
 
 // Preloaded AI Second Brain Notes
@@ -704,4 +1091,91 @@ The Arachnid Crawler is designed to execute multi-vector reconnaissance on any t
 - **AI Second Brain Integration:** One-click weaving of findings into knowledge nodes.
 `,
   },
+];
+
+export const DEFAULT_VULN_NEWS: VulnNewsItem[] = [
+  {
+    cveID: 'CVE-2026-2148',
+    vendorProject: 'Enterprise Gateway Inc',
+    product: 'SecureEdge VPN OS',
+    vulnerabilityName: 'Pre-Auth Remote Code Execution in Management Daemon',
+    dateAdded: '2026-03-08',
+    shortDescription: 'Unauthenticated remote attacker can execute arbitrary system commands with root privileges via crafted packet headers to the administrative portal.',
+    requiredAction: 'Apply vendor hotfix patch v4.9.1 or disable external administrative interface access.',
+    knownRansomwareCampaignUse: 'Known',
+    severity: 'CRITICAL',
+    cvssScore: 9.8,
+    exploitStatus: 'In The Wild (KEV)',
+    sourceUrl: 'https://nvd.nist.gov/vuln/detail/CVE-2026-2148',
+  },
+  {
+    cveID: 'CVE-2026-1933',
+    vendorProject: 'Linux Kernel Organization',
+    product: 'Linux Kernel eBPF',
+    vulnerabilityName: 'eBPF Verifier Type Confusion Privilege Escalation',
+    dateAdded: '2026-03-07',
+    shortDescription: 'Flaw in the eBPF subsystem verification logic allows an unprivileged local user to escalate privileges to root through pointer manipulation.',
+    requiredAction: 'Upgrade kernel packages or restrict unprivileged bpf via sysctl kernel.unprivileged_bpf_disabled=1.',
+    knownRansomwareCampaignUse: 'Unknown',
+    severity: 'HIGH',
+    cvssScore: 8.4,
+    exploitStatus: 'Public PoC',
+    sourceUrl: 'https://nvd.nist.gov/vuln/detail/CVE-2026-1933',
+  },
+  {
+    cveID: 'CVE-2026-3021',
+    vendorProject: 'NextCloud Systems',
+    product: 'CloudSync Server',
+    vulnerabilityName: 'Directory Traversal Arbitrary File Overwrite',
+    dateAdded: '2026-03-05',
+    shortDescription: 'Synchronization API endpoint allows authenticated users to escape upload roots and overwrite system binaries.',
+    requiredAction: 'Update to release 28.0.4 or apply restrictive file upload permissions.',
+    knownRansomwareCampaignUse: 'Known',
+    severity: 'CRITICAL',
+    cvssScore: 9.1,
+    exploitStatus: 'In The Wild (KEV)',
+    sourceUrl: 'https://nvd.nist.gov/vuln/detail/CVE-2026-3021',
+  },
+  {
+    cveID: 'CVE-2026-0944',
+    vendorProject: 'Apache Software Foundation',
+    product: 'Apache Tomcat & Microservices',
+    vulnerabilityName: 'HTTP/2 Request Smuggling & Header Injection',
+    dateAdded: '2026-03-02',
+    shortDescription: 'Improper handling of trailing whitespace in HTTP/2 CONTINUATION frames permits cache poisoning and request hijacking.',
+    requiredAction: 'Apply Apache security update 10.1.20 or filter malicious frames at WAF layer.',
+    knownRansomwareCampaignUse: 'Unknown',
+    severity: 'HIGH',
+    cvssScore: 8.6,
+    exploitStatus: 'Active Scanning',
+    sourceUrl: 'https://nvd.nist.gov/vuln/detail/CVE-2026-0944',
+  },
+  {
+    cveID: 'CVE-2025-5011',
+    vendorProject: 'Microsoft Corporation',
+    product: 'Windows Active Directory Kerberos',
+    vulnerabilityName: 'Kerberos PAC Validation Privilege Escalation',
+    dateAdded: '2026-02-28',
+    shortDescription: 'Cryptographic validation flaw in Kerberos PAC parsing enables Domain Controller impersonation from standard domain accounts.',
+    requiredAction: 'Install monthly Windows cumulative security rollup and enforce PAC signature validation.',
+    knownRansomwareCampaignUse: 'Known',
+    severity: 'CRITICAL',
+    cvssScore: 9.8,
+    exploitStatus: 'In The Wild (KEV)',
+    sourceUrl: 'https://nvd.nist.gov/vuln/detail/CVE-2025-5011',
+  },
+  {
+    cveID: 'CVE-2025-4720',
+    vendorProject: 'Cisco Systems',
+    product: 'IOS XE Software',
+    vulnerabilityName: 'Web UI Privilege Escalation & Implant Injection',
+    dateAdded: '2026-02-24',
+    shortDescription: 'Flaw in web administrative interface allows creation of local high-privilege account without authentication.',
+    requiredAction: 'Disable HTTP/HTTPS server feature or upgrade to patched train release.',
+    knownRansomwareCampaignUse: 'Known',
+    severity: 'CRITICAL',
+    cvssScore: 10.0,
+    exploitStatus: 'In The Wild (KEV)',
+    sourceUrl: 'https://nvd.nist.gov/vuln/detail/CVE-2025-4720',
+  }
 ];

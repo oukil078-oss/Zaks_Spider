@@ -2,7 +2,7 @@
 // ZAK'S SPIDER — CORE SYSTEM DATA TYPES
 // ==========================================
 
-export type SpiderTabId = 'pentest' | 'crawler' | 'brain' | 'terminal';
+export type SpiderTabId = 'pentest' | 'crawler' | 'brain' | 'vuln-news' | 'copilot' | 'operator';
 
 // --- Pentest Lab & Commands Types ---
 export interface CommandParameter {
@@ -226,4 +226,106 @@ export interface ChatMessage {
   timestamp: string;
   model?: string;
   sources?: string[];
+}
+
+// --- Vuln News & CISA KEV Types ---
+export interface VulnNewsItem {
+  cveID: string;
+  vendorProject: string;
+  product: string;
+  vulnerabilityName: string;
+  dateAdded: string;
+  shortDescription: string;
+  requiredAction?: string;
+  dueDate?: string;
+  knownRansomwareCampaignUse?: 'Known' | 'Unknown';
+  notes?: string;
+  cwes?: string[];
+  severity?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  cvssScore?: number;
+  exploitStatus?: 'In The Wild (KEV)' | 'Public PoC' | 'Active Scanning' | 'Under Investigation';
+  sourceUrl?: string;
+}
+
+// --- Copilot & AI Pentest Buddy Types ---
+export interface CopilotAttachment {
+  id: string;
+  name: string;
+  type: 'text' | 'pdf' | 'image' | 'code' | 'log';
+  size: number;
+  content: string; // Text content or Base64 data URL
+  mimeType?: string;
+}
+
+export type CopilotPersonaId = 'widow-lead' | 'ctf-re' | 'blue-team' | 'code-auditor';
+
+export interface CopilotPersona {
+  id: CopilotPersonaId;
+  name: string;
+  badge: string;
+  role: string;
+  systemPrompt: string;
+  description: string;
+  color: string;
+}
+
+export interface CopilotMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  model: string;
+  personaId?: CopilotPersonaId;
+  attachments?: CopilotAttachment[];
+  reasoning?: string;
+  tokensUsed?: number;
+}
+
+export interface AiModelOption {
+  id: string;
+  name: string;
+  tag: string;
+  description: string;
+  contextWindow: string;
+  recommended?: boolean;
+}
+
+// --- Operator Profile & Portfolio Types ---
+export interface OperatorProject {
+  id: string;
+  title: string;
+  description: string;
+  category: 'Autonomous AI' | 'Cybersecurity' | 'Fullstack Web' | 'Education';
+  tags: string[];
+  githubUrl?: string;
+  liveUrl?: string;
+  stars?: number;
+  status: 'Production' | 'Active Development' | 'Maintained';
+  highlights: string[];
+}
+
+export interface OperatorCertification {
+  name: string;
+  status: string;
+  issuer: string;
+  year: string;
+  color: string;
+}
+
+export interface OperatorSkillGroup {
+  category: string;
+  skills: string[];
+}
+
+export interface OperatorProfile {
+  name: string;
+  handle: string;
+  title: string;
+  role: string;
+  location: string;
+  bio: string;
+  githubUrl: string;
+  certifications: OperatorCertification[];
+  skills: OperatorSkillGroup[];
+  projects: OperatorProject[];
 }
