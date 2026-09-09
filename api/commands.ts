@@ -3,7 +3,7 @@
 // Pentest Commands catalog and custom payload storage
 // ==========================================
 
-import { db } from './db';
+import { db } from './db.js';
 
 export default async function handler(req: any, res: any) {
   try {
