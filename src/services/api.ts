@@ -19,6 +19,7 @@ import {
   PhoneLookupResult,
   ForensicCaseDossier
 } from '../types';
+import { DEFAULT_PENTEST_ARSENAL } from './pentestArsenal';
 
 const API_BASE = '/api';
 
@@ -279,6 +280,10 @@ export const api = {
     const updated = [cmd, ...customList.filter(c => c.id !== cmd.id)];
     localStorage.setItem('zaks_spider_custom_commands', JSON.stringify(updated));
     return cmd;
+  },
+
+  async saveCommand(cmd: PentestCommandItem): Promise<PentestCommandItem> {
+    return this.saveCustomCommand(cmd);
   },
 
   // ----------------------------------------

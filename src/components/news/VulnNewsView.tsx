@@ -30,6 +30,7 @@ import {
 import { VulnNewsItem, GlobalCyberAttack } from '../../types';
 import { api } from '../../services/api';
 import { LivingGlobe3D } from '../canvas/LivingGlobe3D';
+import { LiveAttackStreamDeck, REAL_WORLD_ATTACK_POOL } from '../soc/LiveAttackStreamDeck';
 
 interface VulnNewsViewProps {
   onWeaveCveToBrain?: (cve: VulnNewsItem, analysis?: string) => void;
@@ -43,6 +44,8 @@ export const VulnNewsView: React.FC<VulnNewsViewProps> = ({
   const [vulns, setVulns] = useState<VulnNewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedAttackCoords, setSelectedAttackCoords] = useState<[number, number] | undefined>(undefined);
+  const [selectedAttackId, setSelectedAttackId] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
   
   // Search & Filter State
@@ -219,117 +222,31 @@ export const VulnNewsView: React.FC<VulnNewsViewProps> = ({
           </div>
         </div>
 
-        {/* 3D Living Globe Canvas Container */}
-        <div className="h-[420px] w-full rounded-2xl overflow-hidden border border-white/10">
-          <LivingGlobe3D
-            mode="attack-map"
-            activeAttacks={[
-              {
-                id: 'atk-1',
-                sourceCountry: 'Russia',
-                sourceFlag: '🇷🇺',
-                sourceCoords: [55.7558, 37.6173],
-                targetCountry: 'United States',
-                targetFlag: '🇺🇸',
-                targetCoords: [38.9072, -77.0369],
-                threatActor: 'APT29 (Midnight Blizzard)',
-                vector: 'Exchange API Token Exfiltration',
-                severity: 'CRITICAL',
-                timestamp: 'Just now'
-              },
-              {
-                id: 'atk-2',
-                sourceCountry: 'North Korea',
-                sourceFlag: '🇰🇵',
-                sourceCoords: [39.0392, 125.7625],
-                targetCountry: 'Japan',
-                targetFlag: '🇯🇵',
-                targetCoords: [35.6762, 139.6503],
-                threatActor: 'Lazarus Syndicate',
-                vector: 'Cross-Chain Smart Contract Exploit',
-                severity: 'CRITICAL',
-                timestamp: '2s ago'
-              },
-              {
-                id: 'atk-3',
-                sourceCountry: 'China',
-                sourceFlag: '🇨🇳',
-                sourceCoords: [39.9042, 116.4074],
-                targetCountry: 'United Kingdom',
-                targetFlag: '🇬🇧',
-                targetCoords: [51.5074, -0.1278],
-                threatActor: 'Volt Typhoon',
-                vector: 'Edge Router Zero-Day (CVE-2026-3841)',
-                severity: 'HIGH',
-                timestamp: '5s ago'
-              },
-              {
-                id: 'atk-4',
-                sourceCountry: 'Iran',
-                sourceFlag: '🇮🇷',
-                sourceCoords: [35.6892, 51.3890],
-                targetCountry: 'Israel',
-                targetFlag: '🇮🇱',
-                targetCoords: [32.0853, 34.7818],
-                threatActor: 'MuddyWater / Agrius',
-                vector: 'SCADA Wiper Malware Probe',
-                severity: 'CRITICAL',
-                timestamp: '11s ago'
-              },
-              {
-                id: 'atk-5',
-                sourceCountry: 'Anonymous Tor',
-                sourceFlag: '🌐',
-                sourceCoords: [52.3676, 4.9041],
-                targetCountry: 'Algeria',
-                targetFlag: '🇩🇿',
-                targetCoords: [36.7538, 3.0588],
-                threatActor: 'LockBit 3.0 Affiliate',
-                vector: 'SonicWall VPN Credential Stuffing',
-                severity: 'HIGH',
-                timestamp: '14s ago'
-              }
-            ]}
-            className="w-full h-full"
-          />
-        </div>
-
-        {/* Live Attack Feed Cards Ticker */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
-          <div className="p-2.5 rounded-xl bg-[#06090e] border border-red-500/30 flex items-center justify-between text-xs font-mono">
-            <div>
-              <div className="flex items-center gap-1.5 text-red-400 font-bold text-[11px]">
-                <span>🇷🇺 APT29</span>
-                <span>➔</span>
-                <span>🇺🇸 Washington DC</span>
-              </div>
-              <div className="text-[10px] text-zinc-400 mt-0.5 truncate">Token Exfiltration (RCE)</div>
-            </div>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-bold">CRITICAL</span>
+        {/* 2027 Bento Grid: 3D Living Globe (8 Cols) + Live Attack Stream Deck (4 Cols) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          {/* 3D Living Globe Canvas Container */}
+          <div className="lg:col-span-8 h-[520px] w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl relative bg-[#06090e]">
+            <LivingGlobe3D
+              mode="attack-map"
+              selectedCoords={selectedAttackCoords}
+              activeAttacks={REAL_WORLD_ATTACK_POOL.map((a, i) => ({
+                ...a,
+                id: `globe-atk-${i}`,
+                timestamp: 'Live'
+              }))}
+              className="w-full h-full"
+            />
           </div>
 
-          <div className="p-2.5 rounded-xl bg-[#06090e] border border-amber-500/30 flex items-center justify-between text-xs font-mono">
-            <div>
-              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[11px]">
-                <span>🇨🇳 Volt Typhoon</span>
-                <span>➔</span>
-                <span>🇬🇧 London Def</span>
-              </div>
-              <div className="text-[10px] text-zinc-400 mt-0.5 truncate">Edge Router 0-Day</div>
-            </div>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">HIGH</span>
-          </div>
-
-          <div className="p-2.5 rounded-xl bg-[#06090e] border border-cyan-500/30 flex items-center justify-between text-xs font-mono">
-            <div>
-              <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[11px]">
-                <span>🌐 LockBit 3.0</span>
-                <span>➔</span>
-                <span>🇩🇿 Algiers Wilaya 16</span>
-              </div>
-              <div className="text-[10px] text-zinc-400 mt-0.5 truncate">SonicWall Credential Stuffing</div>
-            </div>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">MITIGATED</span>
+          {/* Right Column: Live Attack Stream Deck */}
+          <div className="lg:col-span-4 h-[520px]">
+            <LiveAttackStreamDeck
+              onSelectAttack={(atk) => {
+                setSelectedAttackCoords(atk.targetCoords);
+                setSelectedAttackId(atk.id);
+              }}
+              selectedAttackId={selectedAttackId}
+            />
           </div>
         </div>
       </div>

@@ -20,7 +20,8 @@ import {
   Zap,
   Eye,
   Layers,
-  Database
+  Database,
+  ShieldCheck
 } from 'lucide-react';
 import { LivingGlobe3D } from '../canvas/LivingGlobe3D';
 import type { GroundTower, SatelliteTelemetry } from '../../types';
@@ -90,20 +91,20 @@ export const AerospaceDefenseView: React.FC = () => {
       <div className="relative flex gap-3 h-[520px]">
         {/* Left Floating Action Toolbar (Matching Uploaded Image) */}
         <div className="w-14 flex flex-col items-center justify-between py-4 bg-[#0a101a]/90 backdrop-blur-md border border-white/10 rounded-xl z-20">
-          {/* SIMULATE Section */}
+          {/* AUDIT Section */}
           <div className="flex flex-col items-center gap-3">
-            <span className="text-[8px] tracking-widest text-zinc-500 uppercase">SIM</span>
+            <span className="text-[8px] tracking-widest text-zinc-500 uppercase">AUDIT</span>
             <button 
-              title="Simulate Spacecraft"
+              title="Audit Ku/Ka-Band Downlink Encryption"
               className="p-2 rounded-lg bg-zinc-800/80 hover:bg-cyan-500/20 text-zinc-300 hover:text-cyan-400 border border-white/5 transition-all"
             >
               <Satellite className="w-4 h-4" />
             </button>
             <button 
-              title="Simulate Space Debris"
-              className="p-2 rounded-lg bg-zinc-800/80 hover:bg-amber-500/20 text-zinc-300 hover:text-amber-400 border border-white/5 transition-all"
+              title="GPS Anti-Spoofing & Ephemeris Verification"
+              className="p-2 rounded-lg bg-zinc-800/80 hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-400 border border-white/5 transition-all"
             >
-              <Zap className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4" />
             </button>
           </div>
 

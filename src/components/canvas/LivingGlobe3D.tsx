@@ -479,47 +479,92 @@ export const LivingGlobe3D: React.FC<LivingGlobe3DProps> = ({
         ctx.fillText('Chance of failure: 94%', ncvX + 18, ncvY + 6);
       }
 
-      // 10. Dynamic Parabolic Cyber Attack Arcs (for Live Attacks)
-      arcProgressRef.current = (arcProgressRef.current + 0.008) % 1;
-      const progress = arcProgressRef.current;
-
+      // 10. Dynamic Multi-Color Parabolic Cyber Attack Arcs (Worldwide Nation-State Trajectories)
+      // Staggered organic velocities, DeepAstro arcs, destination impact ripples & city beacons
       const attacksToRender = activeAttacks.length > 0 ? activeAttacks : [
-        // Default realistic threat arcs if none passed
         {
           id: 'def-1',
-          sourceCoords: [55.7558, 37.6173] as [number, number], // Moscow
-          targetCoords: [38.9072, -77.0369] as [number, number], // Washington
+          sourceCountry: 'Russia',
+          sourceCity: 'Moscow',
+          sourceCoords: [55.7558, 37.6173] as [number, number],
+          targetCountry: 'United States',
+          targetCity: 'Washington',
+          targetCoords: [38.9072, -77.0369] as [number, number],
           threatActor: 'APT29 (Cozy Bear)',
-          vector: 'Zero-Day RCE',
-          severity: 'CRITICAL' as const
+          vector: 'Cloud Token Hijack',
+          severity: 'CRITICAL' as const,
         },
         {
           id: 'def-2',
-          sourceCoords: [39.9042, 116.4074] as [number, number], // Beijing
-          targetCoords: [52.5200, 13.4050] as [number, number], // Berlin
+          sourceCountry: 'China',
+          sourceCity: 'Beijing',
+          sourceCoords: [39.9042, 116.4074] as [number, number],
+          targetCountry: 'Germany',
+          targetCity: 'Berlin',
+          targetCoords: [52.5200, 13.4050] as [number, number],
           threatActor: 'Volt Typhoon',
-          vector: 'Industrial SCADA Probe',
-          severity: 'HIGH' as const
+          vector: 'SCADA Infiltration',
+          severity: 'HIGH' as const,
         },
         {
           id: 'def-3',
-          sourceCoords: [39.0392, 125.7625] as [number, number], // Pyongyang
-          targetCoords: [35.6762, 139.6503] as [number, number], // Tokyo
+          sourceCountry: 'North Korea',
+          sourceCity: 'Pyongyang',
+          sourceCoords: [39.0392, 125.7625] as [number, number],
+          targetCountry: 'Japan',
+          targetCity: 'Tokyo',
+          targetCoords: [35.6762, 139.6503] as [number, number],
           threatActor: 'Lazarus Group',
-          vector: 'Crypto SWIFT Heist',
-          severity: 'CRITICAL' as const
+          vector: 'Crypto SWIFT Backdoor',
+          severity: 'CRITICAL' as const,
         },
         {
           id: 'def-4',
-          sourceCoords: [32.0853, 34.7818] as [number, number], // Tel Aviv
-          targetCoords: [35.6892, 51.3890] as [number, number], // Tehran
-          threatActor: 'Cyber Partisans',
-          vector: 'BGP Hijacking',
-          severity: 'HIGH' as const
+          sourceCountry: 'Iran',
+          sourceCity: 'Tehran',
+          sourceCoords: [35.6892, 51.3890] as [number, number],
+          targetCountry: 'Israel',
+          targetCity: 'Tel Aviv',
+          targetCoords: [32.0853, 34.7818] as [number, number],
+          threatActor: 'MuddyWater',
+          vector: 'Unitronics PLC Overwrite',
+          severity: 'HIGH' as const,
+        },
+        {
+          id: 'def-5',
+          sourceCountry: 'Netherlands',
+          sourceCity: 'Amsterdam',
+          sourceCoords: [52.3676, 4.9041] as [number, number],
+          targetCountry: 'France',
+          targetCity: 'Paris',
+          targetCoords: [48.8566, 2.3522] as [number, number],
+          threatActor: 'Akira Ransomware',
+          vector: 'VPN Zero-Day Auth Bypass',
+          severity: 'CRITICAL' as const,
+        },
+        {
+          id: 'def-6',
+          sourceCountry: 'Algeria',
+          sourceCity: 'Algiers',
+          sourceCoords: [36.7538, 3.0588] as [number, number],
+          targetCountry: 'United States',
+          targetCity: 'San Francisco',
+          targetCoords: [37.7749, -122.4194] as [number, number],
+          threatActor: 'Spider Autonomous Recon',
+          vector: 'OSINT Footprint Scan',
+          severity: 'MEDIUM' as const,
         }
       ];
 
-      attacksToRender.forEach((atk) => {
+      const ARC_PALETTE = [
+        { stroke: 'rgba(0, 240, 255, 0.45)', glow: '#00f0ff', name: 'cyan' },
+        { stroke: 'rgba(244, 63, 94, 0.55)', glow: '#f43f5e', name: 'crimson' },
+        { stroke: 'rgba(168, 85, 247, 0.5)', glow: '#a855f7', name: 'purple' },
+        { stroke: 'rgba(251, 146, 60, 0.5)', glow: '#fb923c', name: 'amber' },
+        { stroke: 'rgba(16, 185, 129, 0.45)', glow: '#10b981', name: 'emerald' },
+      ];
+
+      attacksToRender.forEach((atk, idx) => {
         const p1 = projection([atk.sourceCoords[1], atk.sourceCoords[0]]);
         const p2 = projection([atk.targetCoords[1], atk.targetCoords[0]]);
 
@@ -527,51 +572,94 @@ export const LivingGlobe3D: React.FC<LivingGlobe3DProps> = ({
           const dist1 = Math.hypot(p1[0] - center[0], p1[1] - center[1]);
           const dist2 = Math.hypot(p2[0] - center[0], p2[1] - center[1]);
 
-          // Render if at least one endpoint is on visible hemisphere
+          // Render if either endpoint is on visible hemisphere
           if (dist1 <= radius || dist2 <= radius) {
+            const palette = ARC_PALETTE[idx % ARC_PALETTE.length];
             const midX = (p1[0] + p2[0]) / 2;
             const midY = (p1[1] + p2[1]) / 2;
-            // Arc parabolic lift towards space
-            const arcHeight = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * 0.45;
+            const arcHeight = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * 0.42;
             const ctrlX = midX;
             const ctrlY = midY - arcHeight;
 
-            // Parabolic curve
+            // Staggered individual progress
+            const t = ((Date.now() / 2500) * (0.8 + (idx % 3) * 0.25) + idx * 0.28) % 1;
+
+            // Draw curved trajectory arc
+            ctx.save();
             ctx.beginPath();
             ctx.moveTo(p1[0], p1[1]);
             ctx.quadraticCurveTo(ctrlX, ctrlY, p2[0], p2[1]);
-            ctx.strokeStyle = atk.severity === 'CRITICAL' ? 'rgba(239, 68, 68, 0.45)' : 'rgba(251, 146, 60, 0.45)';
+            ctx.strokeStyle = palette.stroke;
             ctx.lineWidth = 1.6;
             ctx.stroke();
+            ctx.restore();
 
-            // Traveling photon head
-            const t = progress;
+            // Calculate traveling photon position
             const photonX = (1 - t) * (1 - t) * p1[0] + 2 * (1 - t) * t * ctrlX + t * t * p2[0];
             const photonY = (1 - t) * (1 - t) * p1[1] + 2 * (1 - t) * t * ctrlY + t * t * p2[1];
 
-            ctx.fillStyle = '#fff';
+            // Traveling photon head & glow
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(photonX, photonY, 2.5, 0, 2 * Math.PI);
             ctx.fill();
 
-            const photonGlow = ctx.createRadialGradient(photonX, photonY, 1, photonX, photonY, 8);
-            photonGlow.addColorStop(0, atk.severity === 'CRITICAL' ? '#ef4444' : '#fb923c');
+            const photonGlow = ctx.createRadialGradient(photonX, photonY, 1, photonX, photonY, 10);
+            photonGlow.addColorStop(0, palette.glow);
             photonGlow.addColorStop(1, 'transparent');
             ctx.fillStyle = photonGlow;
             ctx.beginPath();
-            ctx.arc(photonX, photonY, 8, 0, 2 * Math.PI);
+            ctx.arc(photonX, photonY, 10, 0, 2 * Math.PI);
             ctx.fill();
+            ctx.restore();
 
-            // Source & Target Beacon Rings
-            ctx.fillStyle = atk.severity === 'CRITICAL' ? '#ef4444' : '#fb923c';
-            ctx.beginPath();
-            ctx.arc(p1[0], p1[1], 3, 0, 2 * Math.PI);
-            ctx.fill();
+            // Source City Beacon & Label
+            if (dist1 <= radius) {
+              ctx.fillStyle = palette.glow;
+              ctx.beginPath();
+              ctx.arc(p1[0], p1[1], 3, 0, 2 * Math.PI);
+              ctx.fill();
 
-            ctx.strokeStyle = atk.severity === 'CRITICAL' ? '#ef4444' : '#00f0ff';
-            ctx.beginPath();
-            ctx.arc(p2[0], p2[1], 4 + (Math.sin(Date.now() / 200) + 1) * 2, 0, 2 * Math.PI);
-            ctx.stroke();
+              if (zoom >= 1.0 && (atk.sourceCity || atk.sourceCountry)) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+                ctx.font = '8px JetBrains Mono, monospace';
+                ctx.fillText(atk.sourceCity || atk.sourceCountry, p1[0] + 6, p1[1] - 4);
+              }
+            }
+
+            // Target City Beacon, Ripple Shockwave & Label
+            if (dist2 <= radius) {
+              // Impact ripple when photon arrives (t > 0.85)
+              if (t > 0.8) {
+                const rippleProgress = (t - 0.8) / 0.2; // 0 to 1
+                const rippleRadius = 4 + rippleProgress * 16;
+                ctx.strokeStyle = palette.glow;
+                ctx.lineWidth = 1.5 * (1 - rippleProgress);
+                ctx.beginPath();
+                ctx.arc(p2[0], p2[1], rippleRadius, 0, 2 * Math.PI);
+                ctx.stroke();
+              }
+
+              // Target pulsing ring
+              const ringPulse = (Math.sin(Date.now() / 200 + idx) + 1) * 2;
+              ctx.strokeStyle = palette.glow;
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.arc(p2[0], p2[1], 4 + ringPulse, 0, 2 * Math.PI);
+              ctx.stroke();
+
+              ctx.fillStyle = palette.glow;
+              ctx.beginPath();
+              ctx.arc(p2[0], p2[1], 2.5, 0, 2 * Math.PI);
+              ctx.fill();
+
+              if (zoom >= 1.0 && (atk.targetCity || atk.targetCountry)) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 8px JetBrains Mono, monospace';
+                ctx.fillText(atk.targetCity || atk.targetCountry, p2[0] + 8, p2[1] + 4);
+              }
+            }
           }
         }
       });

@@ -1,9 +1,10 @@
 // ==========================================
-// ZAK'S SPIDER — ENTERPRISE DYNAMIC SIDEBAR
-// Contextual tools & sub-tabs tailored for each of the 3 Primary Hubs
+// ZAK'S SPIDER — 2027 SILICON VALLEY NAVIGATION RAIL
+// Inspired by media_1788987543371.png wireframe
+// Sleek, compact vertical rail with glowing indicator pills & instant hotkeys
 // ==========================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Terminal, 
   Bug, 
@@ -19,10 +20,8 @@ import {
   Satellite, 
   Activity, 
   Bot, 
-  Layers,
   ChevronRight,
   ChevronLeft,
-  Crosshair,
   Lock,
   Radio
 } from 'lucide-react';
@@ -43,46 +42,47 @@ export const EnterpriseSidebar: React.FC<EnterpriseSidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
 }) => {
+  const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
+
   // Navigation config per Hub
   const getNavItems = () => {
     switch (activeHub) {
       case 'pentest':
         return {
-          title: 'PENTEST LAB MODULES',
-          subtitle: 'Offensive & Defensive Matrix',
-          badge: '116+ TOOLS',
-          badgeColor: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+          hubTitle: 'PENTEST LAB',
+          hubTag: 'ARSENAL',
+          themeColor: 'amber',
           items: [
             {
               id: 'arsenal',
-              label: 'Command Arsenal',
-              description: '116+ Offensive & Defensive Tools',
+              label: 'Command Matrix',
+              subLabel: '116+ Exploits & Audits',
               icon: Terminal,
               badge: '116',
               hotkey: 'Alt+1'
             },
             {
               id: 'crawler',
-              label: 'Web Crawler Spider',
-              description: 'Endpoint & Tech Discovery',
+              label: 'Recon Spider',
+              subLabel: 'Endpoints & SSL Audit',
               icon: Bug,
-              badge: 'RECON',
+              badge: 'SPIDER',
               hotkey: 'Alt+2'
             },
             {
               id: 'vuln-news',
-              label: 'Vuln News & Attack Map',
-              description: 'Live CVEs & 3D Attack Globe',
+              label: 'Vuln News & Threat Map',
+              subLabel: 'Live Zero-Day Radar',
               icon: Newspaper,
-              badge: 'REALTIME',
+              badge: 'LIVE',
               hotkey: 'Alt+3'
             },
             {
               id: 'payloads',
-              label: 'Payload & Shell Crafter',
-              description: 'Reverse Shells & Encoders',
+              label: 'Payload Crafter',
+              subLabel: 'Reverse Shell Encoders',
               icon: Zap,
-              badge: 'NEW',
+              badge: 'CRAFT',
               hotkey: 'Alt+4'
             }
           ]
@@ -90,57 +90,56 @@ export const EnterpriseSidebar: React.FC<EnterpriseSidebarProps> = ({
 
       case 'forensics':
         return {
-          title: 'DIGITAL FORENSICS MATRIX',
-          subtitle: 'Deep OSINT Investigation',
-          badge: '52 PLATFORMS',
-          badgeColor: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
+          hubTitle: 'FORENSICS MATRIX',
+          hubTag: 'OSINT',
+          themeColor: 'purple',
           items: [
             {
               id: 'dossier',
-              label: 'Case Dossier & Correlator',
-              description: 'Audit Report & AI Correlation',
+              label: 'Intelligence Dossier',
+              subLabel: 'AI Correlator & Report',
               icon: FileText,
               badge: 'GPT-6',
               hotkey: 'Alt+1'
             },
             {
               id: 'username',
-              label: 'Username Footprint',
-              description: 'Sherlock 52 Platform Probe',
+              label: 'Sherlock Recon',
+              subLabel: '52-Platform Scan',
               icon: Users,
               badge: '52',
               hotkey: 'Alt+2'
             },
             {
               id: 'name',
-              label: 'Full Name & Alias Dorks',
-              description: 'Permutations & Corporate Leads',
+              label: 'Identity Permutations',
+              subLabel: 'Corporate Dorks',
               icon: UserCheck,
               badge: 'PRO',
               hotkey: 'Alt+3'
             },
             {
               id: 'ip',
-              label: 'IP Geolocation & Wilayas',
-              description: '1,541 Communes & TopoJSON',
+              label: 'Deep GIS Reticle',
+              subLabel: '1,541 Communes & Wilayas',
               icon: Globe,
-              badge: '3D GIS',
+              badge: 'GIS 3D',
               hotkey: 'Alt+4'
             },
             {
               id: 'phone',
-              label: 'Telephony & Mobile OSINT',
-              description: 'ITU-T E.164 & Carrier Lookup',
+              label: 'Telephony OSINT',
+              subLabel: 'Carrier & ITU-T E.164',
               icon: Phone,
-              badge: 'CARRIER',
+              badge: 'TEL',
               hotkey: 'Alt+5'
             },
             {
               id: 'neural-web',
-              label: 'Neural Web Knowledge Mesh',
-              description: 'Radial 7-Cluster Target Constellation',
+              label: 'Neural Second Brain',
+              subLabel: '7-Cluster Constellation',
               icon: Network,
-              badge: 'RADIAL',
+              badge: 'MESH',
               hotkey: 'Alt+6'
             }
           ]
@@ -149,47 +148,46 @@ export const EnterpriseSidebar: React.FC<EnterpriseSidebarProps> = ({
       case 'soc':
       default:
         return {
-          title: 'SECURITY OPERATIONS CENTER',
-          subtitle: 'Mission Defense & Telemetry',
-          badge: 'DEFCON 1',
-          badgeColor: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+          hubTitle: 'SOC DEFENSE',
+          hubTag: 'DEFCON 2',
+          themeColor: 'cyan',
           items: [
             {
               id: 'overview',
               label: 'SOC Command Center',
-              description: '3D Threat Radar & Telemetry',
+              subLabel: '3D Radar & Worldwide Arcs',
               icon: ShieldAlert,
-              badge: 'ACTIVE',
+              badge: 'RADAR',
               hotkey: 'Alt+1'
             },
             {
               id: 'aerospace',
-              label: 'Aerospace & Starlink HUD',
-              description: 'SpaceX Telemetry & Ground Towers',
+              label: 'Aerospace & Ground Towers',
+              subLabel: 'Starlink Telemetry & Defense',
               icon: Satellite,
-              badge: 'SATELLITE',
+              badge: 'SAT',
               hotkey: 'Alt+2'
             },
             {
               id: 'events',
-              label: 'Live Events & Honeypot',
-              description: 'Simulate Kali Nmap & Logs',
+              label: 'SIEM Incident Logs',
+              subLabel: 'Honeypot & Suricata Feed',
               icon: Activity,
-              badge: 'IDS LOGS',
+              badge: 'LOGS',
               hotkey: 'Alt+3'
             },
             {
               id: 'vectors',
-              label: 'Vector Velocity Analytics',
-              description: 'DDoS & Malware Histograms',
+              label: 'Vector Velocity',
+              subLabel: 'DDoS & Traffic Spectrum',
               icon: Radio,
-              badge: 'TRAFFIC',
+              badge: 'NET',
               hotkey: 'Alt+4'
             },
             {
               id: 'copilot',
-              label: 'AI Threat Hunter Copilot',
-              description: 'Interactive GPT-6 Astra Agent',
+              label: 'AI SOC Copilot',
+              subLabel: 'GPT-6 Astra Autonomous Agent',
               icon: Bot,
               badge: 'AI SOC',
               hotkey: 'Alt+5'
@@ -201,109 +199,130 @@ export const EnterpriseSidebar: React.FC<EnterpriseSidebarProps> = ({
 
   const navConfig = getNavItems();
 
+  const getGlowColor = (isActive: boolean) => {
+    if (!isActive) return '';
+    if (navConfig.themeColor === 'amber') return 'border-amber-500/40 bg-amber-500/10 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]';
+    if (navConfig.themeColor === 'purple') return 'border-purple-500/40 bg-purple-500/10 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)]';
+    return 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300 shadow-[0_0_15px_rgba(0,240,255,0.2)]';
+  };
+
+  const getPillColor = () => {
+    if (navConfig.themeColor === 'amber') return 'bg-amber-400';
+    if (navConfig.themeColor === 'purple') return 'bg-purple-400';
+    return 'bg-cyan-400';
+  };
+
   return (
     <aside
-      className={`h-full bg-[#06090e]/95 backdrop-blur-xl border-r border-white/10 flex flex-col justify-between transition-all duration-300 select-none z-30 ${
-        isCollapsed ? 'w-16' : 'w-64 sm:w-72'
-      }`}
+      className={`h-full flex flex-col justify-between select-none z-30 transition-all duration-300 ${
+        isCollapsed ? 'w-16' : 'w-60'
+      } bg-[#070b12]/95 backdrop-blur-2xl border-r border-white/10`}
     >
-      {/* Top Header / Section Identifier */}
-      <div className="p-3 border-b border-white/10">
+      {/* Top Rail Header */}
+      <div className="p-3 border-b border-white/10 flex items-center justify-between">
         {!isCollapsed ? (
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-mono font-bold tracking-widest text-zinc-400 uppercase">
-                  {navConfig.title}
-                </span>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className={`w-2 h-2 rounded-full ${getPillColor()} animate-pulse`} />
+            <div className="truncate">
+              <div className="text-[11px] font-mono font-bold text-white tracking-wider truncate">
+                {navConfig.hubTitle}
               </div>
-              <p className="text-[9px] font-mono text-zinc-500 mt-0.5">
-                {navConfig.subtitle}
-              </p>
+              <div className="text-[9px] font-mono text-zinc-400 truncate">
+                {navConfig.hubTag}
+              </div>
             </div>
-            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${navConfig.badgeColor}`}>
-              {navConfig.badge}
-            </span>
           </div>
         ) : (
-          <div className="flex items-center justify-center">
-            <span className={`text-[9px] font-mono font-bold p-1 rounded border ${navConfig.badgeColor}`}>
-              {activeHub.toUpperCase()}
-            </span>
+          <div className="w-full flex justify-center py-1">
+            <div className={`w-2.5 h-2.5 rounded-full ${getPillColor()} animate-pulse shadow-sm`} />
           </div>
         )}
+
+        <button
+          onClick={onToggleCollapse}
+          className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition"
+          title={isCollapsed ? 'Expand rail' : 'Collapse rail'}
+        >
+          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
       </div>
 
-      {/* Navigation Sub-Tabs List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      {/* Main Navigation Items */}
+      <div className="flex-1 py-3 px-2 space-y-1.5 overflow-y-auto">
         {navConfig.items.map((item) => {
           const Icon = item.icon;
           const isActive = activeSubTab === item.id;
 
           return (
-            <button
-              key={item.id}
-              onClick={() => onSelectSubTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-mono text-xs transition-all relative group ${
-                isActive
-                  ? 'bg-gradient-to-r from-white/10 to-transparent text-white border border-white/15 shadow-md'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              {/* Left active marker strip */}
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-cyan-400 rounded-r" />
-              )}
+            <div key={item.id} className="relative">
+              <button
+                onClick={() => onSelectSubTab(item.id)}
+                onMouseEnter={() => setHoveredTabId(item.id)}
+                onMouseLeave={() => setHoveredTabId(null)}
+                className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs font-mono transition-all duration-200 relative group ${
+                  isActive
+                    ? getGlowColor(true) + ' border font-semibold'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                } ${isCollapsed ? 'justify-center' : 'justify-between'}`}
+              >
+                {/* Active Indicator Pip */}
+                {isActive && (
+                  <span className={`absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full ${getPillColor()}`} />
+                )}
 
-              <div className={`p-1.5 rounded-lg border transition-colors ${
-                isActive 
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' 
-                  : 'bg-zinc-900 border-white/5 text-zinc-400 group-hover:text-zinc-200'
-              }`}>
-                <Icon className="w-4 h-4" />
-              </div>
+                <div className="flex items-center gap-2.5 truncate">
+                  <span className={`p-1 rounded-lg ${isActive ? 'bg-white/10' : 'group-hover:bg-white/5'}`}>
+                    <Icon className="w-4 h-4 shrink-0" />
+                  </span>
+                  {!isCollapsed && (
+                    <div className="text-left truncate">
+                      <div className="truncate text-xs">{item.label}</div>
+                      <div className="text-[9px] text-zinc-500 truncate">{item.subLabel}</div>
+                    </div>
+                  )}
+                </div>
 
-              {!isCollapsed && (
-                <div className="flex-1 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className={`font-semibold ${isActive ? 'text-white' : 'text-zinc-300'}`}>
-                      {item.label}
-                    </span>
-                    {item.badge && (
-                      <span className={`text-[9px] px-1.5 py-0.2 rounded border font-mono ${
-                        isActive 
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' 
-                          : 'bg-black/40 text-zinc-500 border-white/5'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    )}
+                {!isCollapsed && (
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${
+                    isActive 
+                      ? 'border-white/20 bg-white/10 text-white' 
+                      : 'border-white/5 bg-white/[0.03] text-zinc-500'
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+
+              {/* Hover Tooltip when collapsed */}
+              {isCollapsed && hoveredTabId === item.id && (
+                <div className="absolute left-16 top-1/2 -translate-y-1/2 z-50 px-3 py-2 rounded-xl bg-[#0e1626] border border-white/15 shadow-2xl text-left pointer-events-none whitespace-nowrap min-w-[140px]">
+                  <div className="text-xs font-mono font-bold text-white flex items-center justify-between gap-3">
+                    <span>{item.label}</span>
+                    <span className="text-[9px] text-zinc-400 font-normal">{item.hotkey}</span>
                   </div>
-                  <p className="text-[10px] text-zinc-500 truncate mt-0.5">
-                    {item.description}
-                  </p>
+                  <div className="text-[10px] font-mono text-zinc-400 mt-0.5">{item.subLabel}</div>
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
 
-      {/* Footer Collapse / Expand Toggle */}
-      <div className="p-2 border-t border-white/10 flex items-center justify-between">
-        {!isCollapsed && (
-          <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1.5 px-2">
-            <Lock className="w-3 h-3 text-emerald-400" />
-            <span>SECURE ENCLAVE</span>
+      {/* Rail Bottom Footer: Operational Security Status */}
+      <div className="p-3 border-t border-white/10">
+        {!isCollapsed ? (
+          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500">
+            <div className="flex items-center gap-1.5">
+              <Lock className="w-3 h-3 text-emerald-400" />
+              <span className="text-zinc-400">TLS 1.3 / AES-256</span>
+            </div>
+            <span className="text-emerald-400 font-bold">SECURE</span>
+          </div>
+        ) : (
+          <div className="flex justify-center" title="TLS 1.3 Encrypted">
+            <Lock className="w-3.5 h-3.5 text-emerald-400" />
           </div>
         )}
-        <button
-          onClick={onToggleCollapse}
-          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/10 transition-colors ml-auto"
-        >
-          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
       </div>
     </aside>
   );

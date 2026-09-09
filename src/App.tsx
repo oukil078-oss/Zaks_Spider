@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SpiderWebCanvas } from './components/canvas/SpiderWebCanvas';
 import { SpiderHeader } from './components/layout/SpiderHeader';
 import { EnterpriseSidebar } from './components/layout/EnterpriseSidebar';
+import { BentoMetricsRow } from './components/layout/BentoMetricsRow';
 import { SocCommandCenterView } from './components/soc/SocCommandCenterView';
 import { AerospaceDefenseView } from './components/soc/AerospaceDefenseView';
 import { PentestLabView } from './components/pentest/PentestLabView';
@@ -450,7 +451,25 @@ export const App: React.FC = () => {
         />
 
         {/* Content View Router */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-4">
+          {/* Top 3 Bento Telemetry Cards (media_1788987543371.png) */}
+          <BentoMetricsRow
+            pentestCount={commands.length > 0 ? commands.length : 116}
+            activeAttacksCount={18}
+            cveCount={1184}
+            onOpenLiveThreats={() => {
+              setActiveHub('pentest');
+              setPentestSubTab('vuln-news');
+            }}
+            onOpenArsenal={() => {
+              setActiveHub('pentest');
+              setPentestSubTab('arsenal');
+            }}
+            onOpenVulns={() => {
+              setActiveHub('pentest');
+              setPentestSubTab('vuln-news');
+            }}
+          />
           {/* ======================================================== */}
           {/* 1. PENTEST LAB HUB                                       */}
           {/* ======================================================== */}

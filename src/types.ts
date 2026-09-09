@@ -597,13 +597,18 @@ export interface GlobalCyberAttack {
   id: string;
   sourceCountry: string;
   sourceFlag: string;
+  sourceCity?: string;
   sourceCoords: [number, number]; // [lat, lng]
   targetCountry: string;
   targetFlag: string;
+  targetCity?: string;
   targetCoords: [number, number]; // [lat, lng]
   threatActor: string; // e.g. 'APT29 (Cozy Bear)', 'Lazarus Group', 'Volt Typhoon', 'LockBit 3.0'
   vector: string; // e.g. 'Zero-Day RCE', 'DDoS Volumetric', 'Supply-Chain Injection', 'BGP Hijacking'
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+  port?: number;
+  status?: 'BLOCKED' | 'ISOLATED' | 'CONTAINED' | 'DETECTED' | 'MITIGATED';
+  cve?: string;
   timestamp: string;
 }
 
