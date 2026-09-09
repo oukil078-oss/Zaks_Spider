@@ -71,9 +71,9 @@ export const App: React.FC = () => {
 
         {/* Center Stage & Right Deck */}
         <main className="flex-1 h-full overflow-hidden flex flex-col">
-          {activeHub === 'soc' && <SocView />}
+          {activeHub === 'soc' && <SocView activeSubSection={activeSubCategory} />}
           {activeHub === 'pentest' && <PentestView initialCategory={activeSubCategory} />}
-          {activeHub === 'forensics' && <ForensicsView />}
+          {activeHub === 'forensics' && <ForensicsView initialTab={activeSubCategory as any} />}
         </main>
       </div>
     </ConsoleFrame>

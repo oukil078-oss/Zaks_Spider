@@ -2,9 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Fingerprint, Globe, PhoneCall, ShieldCheck, 
   ExternalLink, CheckCircle2, XCircle, Loader2, Download, 
-  UserCheck, AlertTriangle, FileText, MapPin, Share2, Compass, Layers
+  UserCheck, AlertTriangle, FileText, MapPin, Share2, Compass, Layers, 
+  Copy, Check, Mail, Building, AtSign, ArrowUpRight
 } from 'lucide-react';
 import { UsernamePlatformDef, UsernameCheckResult } from '../../types';
+
+interface ForensicsViewProps {
+  initialTab?: 'username' | 'name' | 'phone' | 'gis' | 'dossier';
+}
 
 const PLATFORMS_52: UsernamePlatformDef[] = [
   { id: 'github', name: 'GitHub', category: 'Developer', urlPattern: 'https://github.com/{username}', icon: 'GitBranch', description: 'Source code repositories and commit logs' },
@@ -61,12 +66,24 @@ const PLATFORMS_52: UsernamePlatformDef[] = [
   { id: 'proton', name: 'Proton Verified', category: 'Developer', urlPattern: 'https://{username}.anonaddy.me', icon: 'Lock', description: 'Encrypted alias routing' },
 ];
 
-export const ForensicsView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'username' | 'phone' | 'gis'>('username');
+export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'username' }) => {
+  const [activeTab, setActiveTab] = useState<'username' | 'name' | 'phone' | 'gis' | 'dossier'>(initialTab);
   const [query, setQuery] = useState('cyber_operator');
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<UsernameCheckResult[]>([]);
+
+  // Sync with initialTab prop
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
+
+  // Full Name & Google Dorks State
+  const [firstName, setFirstName] = useState('Zakaria');
+  const [lastName, setLastName] = useState('Oukil');
+  const [company, setCompany] = useState('usthb.dz');
+  const [location, setLocation] = useState('Algiers, Algeria');
+  const [copiedDork, setCopiedDork] = useState<string | null>(null);
 
   // Phone Lookup State
   const [phoneNumber, setPhoneNumber] = useState('+213 555 12 34 56');
@@ -84,7 +101,7 @@ export const ForensicsView: React.FC = () => {
       .then((res) => res.json())
       .then((data) => {
         if (data && data.features) {
-          setCommunesList(data.features.slice(0, 100)); // Sample 100 for fast UI response
+          setCommunesList(data.features.slice(0, 100));
           if (data.features[0]) {
             setSelectedCommune(data.features[0]);
           }
@@ -94,8 +111,11 @@ export const ForensicsView: React.FC = () => {
   }, []);
 
   // Username Sherlock Probe Simulator
-  const handleExecuteSherlock = () => {
-    if (!query.trim()) return;
+  const handleExecuteSherlock = (targetUsername?: string) => {
+    const handle = targetUsername || query;
+    if (!handle.trim()) return;
+    setQuery(handle);
+    setActiveTab('username');
     setIsScanning(true);
     setProgress(0);
     setResults([]);
@@ -104,8 +124,8 @@ export const ForensicsView: React.FC = () => {
       id: p.id,
       platform: p.name,
       category: p.category,
-      username: query,
-      profileUrl: p.urlPattern.replace('{username}', query),
+      username: handle,
+      profileUrl: p.urlPattern.replace('{username}', handle),
       status: 'checking',
       icon: p.icon,
     }));
@@ -120,8 +140,7 @@ export const ForensicsView: React.FC = () => {
       setResults((prev) =>
         prev.map((item, idx) => {
           if (idx < completed) {
-            // Predictable matching based on character hash for educational demo
-            const hash = (query.length + idx * 7) % 5;
+            const hash = (handle.length + idx * 7) % 5;
             const isFound = hash === 0 || hash === 1;
             return {
               ...item,
@@ -160,30 +179,115 @@ export const ForensicsView: React.FC = () => {
     });
   };
 
+  // Full Name Calculations
+  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+  const fLower = firstName.trim().toLowerCase();
+  const lLower = lastName.trim().toLowerCase();
+  const domainClean = company.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+
+  const usernamePermutations = [
+    `${fLower}.${lLower}`,
+    `${fLower}_${lLower}`,
+    `${fLower}${lLower}`,
+    `${fLower[0] || ''}${lLower}`,
+    `${fLower}${lLower[0] || ''}`,
+    `${lLower}.${fLower}`,
+    `${lLower}_${fLower}`,
+    `${lLower}${fLower[0] || ''}`,
+  ].filter(Boolean);
+
+  const emailPermutations = domainClean ? [
+    { email: `${fLower}.${lLower}@${domainClean}`, label: 'First.Last (Standard Corporate)', conf: 95 },
+    { email: `${fLower[0] || ''}${lLower}@${domainClean}`, label: 'FLast (Enterprise Short)', conf: 88 },
+    { email: `${fLower}@${domainClean}`, label: 'First Name Direct', conf: 72 },
+    { email: `${lLower}.${fLower[0] || ''}@${domainClean}`, label: 'Last.F (Government/Academic)', conf: 65 },
+  ] : [];
+
+  const googleDorks = [
+    {
+      title: 'Leaked PDF, DOCX & Financial Records',
+      query: `filetype:pdf OR filetype:docx "${fullName}"`,
+      desc: 'Finds public CVs, university theses, contracts, and presentations referencing target name.',
+      cat: 'Documents',
+    },
+    {
+      title: 'Social & Professional Presence',
+      query: `site:linkedin.com/in/ OR site:twitter.com OR site:facebook.com "${fullName}"`,
+      desc: 'Discovers verified social and corporate profile accounts on major networks.',
+      cat: 'Social',
+    },
+    {
+      title: 'Academic Theses & Publications',
+      query: `"${fullName}" (thesis OR dissertation OR master OR IEEE OR research OR publication) site:.edu OR site:.dz`,
+      desc: 'Searches university repositories, academic publications, and scientific papers.',
+      cat: 'Academic',
+    },
+    {
+      title: 'Leaked Credentials & Pastebins',
+      query: `"${fullName}" site:pastebin.com OR site:github.com OR site:gitlab.com (password OR api_key OR token OR credential)`,
+      desc: 'Probes code repositories and paste sites for unintended secret leaks mentioning target.',
+      cat: 'Credentials',
+    },
+    {
+      title: 'Government, Gazette & Legal Records',
+      query: `"${fullName}" site:gov OR site:joradp.dz OR site:justice.dz`,
+      desc: 'Scans official state gazettes, legal decrees, and ministerial announcements.',
+      cat: 'Government',
+    },
+    {
+      title: 'Corporate Registry & Executive Roles',
+      query: `"${fullName}" ("board of directors" OR founder OR ceo OR manager OR associate OR partner)`,
+      desc: 'Uncovers commercial registries, startup roles, and executive entity relationships.',
+      cat: 'Corporate',
+    },
+  ];
+
+  const handleCopyDork = (dorkQuery: string, id: string) => {
+    navigator.clipboard.writeText(dorkQuery);
+    setCopiedDork(id);
+    setTimeout(() => setCopiedDork(null), 2000);
+  };
+
+  const handleLaunchDork = (dorkQuery: string) => {
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(dorkQuery)}`, '_blank');
+  };
+
   const foundCount = results.filter((r) => r.status === 'found').length;
 
   return (
     <div className="flex-1 w-full h-full flex flex-col gap-3 overflow-hidden font-mono">
       {/* Sub-tab Pill Navigation */}
       <div className="flex items-center justify-between pb-1 shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('username')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'username'
                 ? 'bg-gradient-to-r from-purple-500/30 to-pink-600/30 text-purple-300 border border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
                 : 'bg-[#0a101d] text-slate-400 hover:text-slate-200 border border-cyan-500/15'
             }`}
           >
             <Search className="w-3.5 h-3.5" />
-            <span>Sherlock 52-Platform Probe</span>
+            <span>Sherlock 52-Platform</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('name')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'name'
+                ? 'bg-gradient-to-r from-cyan-500/30 to-blue-600/30 text-cyan-300 border border-cyan-400 shadow-[0_0_12px_rgba(0,240,255,0.3)]'
+                : 'bg-[#0a101d] text-slate-400 hover:text-slate-200 border border-cyan-500/15'
+            }`}
+          >
+            <AtSign className="w-3.5 h-3.5" />
+            <span>Full Name & Google Dorks</span>
           </button>
 
           <button
             onClick={() => setActiveTab('phone')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'phone'
-                ? 'bg-gradient-to-r from-cyan-500/30 to-blue-600/30 text-cyan-300 border border-cyan-400 shadow-[0_0_12px_rgba(0,240,255,0.3)]'
+                ? 'bg-gradient-to-r from-emerald-500/30 to-teal-600/30 text-emerald-300 border border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
                 : 'bg-[#0a101d] text-slate-400 hover:text-slate-200 border border-cyan-500/15'
             }`}
           >
@@ -193,18 +297,18 @@ export const ForensicsView: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('gis')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'gis'
-                ? 'bg-gradient-to-r from-emerald-500/30 to-teal-600/30 text-emerald-300 border border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                ? 'bg-gradient-to-r from-yellow-500/30 to-amber-600/30 text-yellow-300 border border-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
                 : 'bg-[#0a101d] text-slate-400 hover:text-slate-200 border border-cyan-500/15'
             }`}
           >
             <MapPin className="w-3.5 h-3.5" />
-            <span>GIS Reticle & 69 Algerian Wilayas</span>
+            <span>GIS & 69 Wilayas</span>
           </button>
         </div>
 
-        <div className="text-xs text-slate-400 font-bold flex items-center gap-2">
+        <div className="text-xs text-slate-400 font-bold flex items-center gap-2 shrink-0">
           <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
           <span>FORENSICS MATRIX ARMED</span>
         </div>
@@ -214,9 +318,9 @@ export const ForensicsView: React.FC = () => {
       <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 overflow-hidden">
         {/* Center Stage */}
         <div className="lg:col-span-8 flex flex-col h-full rounded-2xl bg-[#060b14]/90 border border-cyan-500/20 overflow-hidden relative shadow-2xl">
+          {/* 1. Sherlock 52-Platform View */}
           {activeTab === 'username' && (
             <div className="flex-1 flex flex-col h-full overflow-hidden">
-              {/* Search Bar */}
               <div className="p-3 border-b border-cyan-500/20 bg-[#0a1222] flex items-center justify-between gap-3">
                 <div className="relative flex-1">
                   <Fingerprint className="w-4 h-4 text-purple-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -231,7 +335,7 @@ export const ForensicsView: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={handleExecuteSherlock}
+                  onClick={() => handleExecuteSherlock()}
                   disabled={isScanning}
                   className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:brightness-110 transition-all cursor-pointer disabled:opacity-50"
                 >
@@ -249,7 +353,6 @@ export const ForensicsView: React.FC = () => {
                 </button>
               </div>
 
-              {/* Progress Bar */}
               {isScanning && (
                 <div className="w-full h-1 bg-slate-800">
                   <div
@@ -259,7 +362,6 @@ export const ForensicsView: React.FC = () => {
                 </div>
               )}
 
-              {/* Platform Check Cards Matrix */}
               <div className="flex-1 p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/20 scrollbar-track-transparent">
                 {results.length === 0 ? (
                   <div className="col-span-full h-full flex flex-col items-center justify-center text-slate-500 text-xs py-16">
@@ -326,6 +428,176 @@ export const ForensicsView: React.FC = () => {
             </div>
           )}
 
+          {/* 2. Full Name & Google Dorks Matrix View (PRIMARY NEW REQUEST) */}
+          {activeTab === 'name' && (
+            <div className="flex-1 p-4 flex flex-col gap-3.5 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/20 scrollbar-track-transparent">
+              {/* Input Form */}
+              <div className="p-4 rounded-xl bg-slate-900/80 border border-cyan-500/30">
+                <div className="text-xs font-bold text-cyan-400 mb-3 flex items-center gap-2">
+                  <AtSign className="w-4 h-4 text-cyan-400" />
+                  <span>TARGET FULL NAME & ORGANIZATION DISCOVERY:</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold">FIRST NAME:</label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Zakaria"
+                      className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold">LAST NAME:</label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Oukil"
+                      className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold">COMPANY / DOMAIN:</label>
+                    <input
+                      type="text"
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      placeholder="usthb.dz"
+                      className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold">LOCATION / CITY:</label>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Algiers, Algeria"
+                      className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Username & Email Permutations Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Username Permutations */}
+                <div className="p-3.5 rounded-xl bg-[#090f1e] border border-purple-500/30">
+                  <div className="text-xs font-bold text-purple-300 mb-2 flex items-center justify-between">
+                    <span>HANDLE PERMUTATION MATRIX:</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{usernamePermutations.length} generated</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usernamePermutations.map((uname) => (
+                      <div
+                        key={uname}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 border border-purple-500/20 text-xs text-purple-200 font-mono"
+                      >
+                        <span>@{uname}</span>
+                        <button
+                          onClick={() => handleExecuteSherlock(uname)}
+                          title="Pivot and probe in Sherlock 52"
+                          className="text-cyan-400 hover:text-white p-0.5"
+                        >
+                          <Search className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Email Predictions */}
+                <div className="p-3.5 rounded-xl bg-[#090f1e] border border-cyan-500/30">
+                  <div className="text-xs font-bold text-cyan-300 mb-2 flex items-center justify-between">
+                    <span>CORPORATE EMAIL PREDICTIONS:</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{company || 'Domain'}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {emailPermutations.map((em) => (
+                      <div
+                        key={em.email}
+                        className="flex items-center justify-between p-1.5 rounded-lg bg-black/60 border border-cyan-500/15 text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3 h-3 text-cyan-400" />
+                          <span className="text-white font-mono font-bold">{em.email}</span>
+                        </div>
+                        <span className="text-[10px] text-emerald-400 font-bold font-mono">{em.conf}% Prob.</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Weaponized Google Dorks Table */}
+              <div className="p-3.5 rounded-xl bg-[#080d1a] border border-cyan-500/20">
+                <div className="text-xs font-bold text-white mb-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-cyan-400" />
+                    <span>1-CLICK WEAPONIZED GOOGLE DORKS MATRIX:</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Target: {fullName}</span>
+                </div>
+
+                <div className="space-y-2">
+                  {googleDorks.map((dork, dIdx) => (
+                    <div
+                      key={dIdx}
+                      className="p-2.5 rounded-xl bg-[#050812] border border-cyan-500/15 hover:border-cyan-400/50 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-bold text-[9px] border border-cyan-500/30 uppercase">
+                            {dork.cat}
+                          </span>
+                          <span className="font-bold text-white">{dork.title}</span>
+                        </div>
+                        <div className="mt-1 p-1 rounded bg-black/80 font-mono text-[11px] text-cyan-300 border border-slate-800 break-all">
+                          {dork.query}
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-400">{dork.desc}</p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
+                        <button
+                          onClick={() => handleCopyDork(dork.query, `dork-${dIdx}`)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-slate-700 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          {copiedDork === `dork-${dIdx}` ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span className="text-emerald-400">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleLaunchDork(dork.query)}
+                          className="px-3 py-1 rounded-lg bg-gradient-to-r from-cyan-500/30 to-blue-600/30 hover:bg-cyan-500/40 text-cyan-300 border border-cyan-400/50 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+                        >
+                          <span>Execute in Google</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Phone Forensics View */}
           {activeTab === 'phone' && (
             <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
               <div className="p-4 rounded-xl bg-slate-900/80 border border-cyan-500/30">
@@ -377,6 +649,7 @@ export const ForensicsView: React.FC = () => {
             </div>
           )}
 
+          {/* 4. GIS Reticle & 69 Algerian Wilayas View */}
           {activeTab === 'gis' && (
             <div className="flex-1 p-4 flex flex-col gap-3 overflow-hidden">
               <div className="flex items-center gap-3">
@@ -413,7 +686,6 @@ export const ForensicsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Tactical GIS Coordinates Display */}
               <div className="flex-1 rounded-xl bg-[#040812] border border-cyan-500/30 p-4 relative overflow-hidden flex flex-col justify-between">
                 <div className="flex items-center justify-between text-xs text-cyan-300">
                   <div className="flex items-center gap-1.5">
@@ -459,7 +731,7 @@ export const ForensicsView: React.FC = () => {
             </div>
             <button
               onClick={() => {
-                alert(`Dossier exported: CASE-2026-DZ-${query || 'TARGET'}.json generated.`);
+                alert(`Dossier exported: CASE-2026-DZ-${fullName || query || 'TARGET'}.json generated.`);
               }}
               className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1.5 hover:bg-purple-900/50 transition-colors cursor-pointer"
             >
@@ -496,14 +768,14 @@ export const ForensicsView: React.FC = () => {
               </div>
             </div>
 
-            {/* AI Persona Executive Summary */}
+            {/* Target Identity Summary */}
             <div className="p-3 rounded-xl bg-[#060a14] border border-cyan-500/20 space-y-2">
               <div className="text-cyan-400 font-bold text-[11px] uppercase flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Executive Intelligence Summary:</span>
               </div>
               <p className="text-slate-300 text-[11px] leading-relaxed">
-                Target handle <span className="text-cyan-300 font-bold">{query}</span> demonstrates active presence across developer, social, and communications services. Correlated telecom node identifies legitimate Algerian GSM subscriber footprint.
+                Target identity <span className="text-cyan-300 font-bold">{fullName}</span> (@{query}) demonstrates digital footprint correlated across developer, social, and communications services. Affiliation node: <span className="text-purple-300 font-bold">{company}</span> ({location}).
               </p>
             </div>
 
@@ -524,15 +796,15 @@ export const ForensicsView: React.FC = () => {
       {/* Bottom Control Bar */}
       <div className="w-full p-2.5 rounded-2xl bg-[#080d18]/90 border border-cyan-500/20 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
-          <span className="text-slate-400">Current Target:</span>
-          <span className="text-purple-300 font-bold font-mono">@{query}</span>
+          <span className="text-slate-400">Target Full Name:</span>
+          <span className="text-cyan-300 font-bold font-mono">{fullName}</span>
           <span className="text-slate-600">//</span>
-          <span className="text-slate-400">Total Lookups Today:</span>
-          <span className="text-cyan-400 font-bold font-mono">148 Records</span>
+          <span className="text-slate-400">Sherlock Handle:</span>
+          <span className="text-purple-300 font-bold font-mono">@{query}</span>
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
-          <span>Sherlock OpenSource Engine</span>
+          <span>Google Dorking Engine</span>
           <span className="text-slate-600">//</span>
           <span>ITU-T Standards Compliant</span>
         </div>

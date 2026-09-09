@@ -1,14 +1,18 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { geoOrthographic, geoPath, geoGraticule10, geoInterpolate } from 'd3-geo';
 import * as topojson from 'topojson-client';
-import { ZoomIn, ZoomOut, RotateCcw, Play, Pause, Globe2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Play, Pause, Globe2, Radio, Layers, Sparkles } from 'lucide-react';
 import { GlobalCyberAttack } from '../../types';
+import { REAL_COUNTRY_THREATS, CountryThreatNode } from '../../data/threatFeed';
+
+export type GlobeViewMode = 'dots' | 'hybrid' | 'arcs';
 
 interface Globe3DProps {
   attacks: GlobalCyberAttack[];
   selectedAttack?: GlobalCyberAttack | null;
   onSelectAttack?: (attack: GlobalCyberAttack) => void;
   focusCoords?: [number, number] | null; // [lat, lng]
+  onSelectCountry?: (country: CountryThreatNode) => void;
 }
 
 interface CityBeacon {
@@ -24,7 +28,7 @@ const STRATEGIC_CITIES: CityBeacon[] = [
   { name: 'Frankfurt', coords: [50.1109, 8.6821], color: '#10b981' },
   { name: 'Tokyo', coords: [35.6762, 139.6503], color: '#a855f7' },
   { name: 'Tel Aviv', coords: [32.0853, 34.7818], color: '#38bdf8' },
-  { name: 'Tehran', coords: [35.6892, 51.3890], color: '#f97316' },
+  { name: 'Tehran', coords: [35.6892, 51.389], color: '#f97316' },
   { name: 'Algiers', coords: [36.7538, 3.0588], color: '#34d399' },
   { name: 'Paris', coords: [48.8566, 2.3522], color: '#c084fc' },
   { name: 'San Francisco', coords: [37.7749, -122.4194], color: '#06b6d4' },
@@ -37,9 +41,15 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   selectedAttack,
   onSelectAttack,
   focusCoords,
+  onSelectCountry,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Visualization mode: 'dots' (country attack density), 'hybrid', or 'arcs'
+  const [viewMode, setViewMode] = useState<GlobeViewMode>('dots');
+  const viewModeRef = useRef<GlobeViewMode>('dots');
+  viewModeRef.current = viewMode;
 
   // Projection state: [yaw (lon), pitch (lat), roll]
   const rotationRef = useRef<[number, number, number]>([-15, -20, 0]);
@@ -73,7 +83,6 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   useEffect(() => {
     if (focusCoords && focusCoords.length === 2) {
       const [lat, lng] = focusCoords;
-      // D3 rotation is [-lng, -lat, 0] to place coordinate in center
       targetRotationRef.current = [-lng, -lat, 0];
       isAutoRotateRef.current = false;
       setAutoRotate(false);
@@ -103,7 +112,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     if (pulsesRef.current.length === 0 && attacks.length > 0) {
       pulsesRef.current = attacks.map((_, i) => ({
         attackIndex: i,
-        progress: (i / attacks.length),
+        progress: i / attacks.length,
         speed: 0.003 + (i % 5) * 0.0015,
       }));
     }
@@ -123,7 +132,6 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         const [curYaw, curPitch, curRoll] = rotationRef.current;
         const [tgtYaw, tgtPitch, tgtRoll] = targetRotationRef.current;
 
-        // Normalize yaw difference to -180..180
         let diffYaw = (tgtYaw - curYaw) % 360;
         if (diffYaw > 180) diffYaw -= 360;
         if (diffYaw < -180) diffYaw += 360;
@@ -141,7 +149,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
           ];
         }
       } else if (isAutoRotateRef.current && !isDraggingRef.current) {
-        rotationRef.current[0] += 0.15; // Slow ambient orbit
+        rotationRef.current[0] += 0.15; // Ambient slow orbit
       }
 
       // Configure D3 Orthographic Projection
@@ -159,10 +167,9 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       // Deep Space Star Dust
       ctx.save();
       ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      // Pre-calculated star dots
-      for (let s = 0; s < 40; s++) {
-        const sx = ((s * 137.5) % width);
-        const sy = ((s * 241.3) % height);
+      for (let s = 0; s < 45; s++) {
+        const sx = (s * 137.5) % width;
+        const sy = (s * 241.3) % height;
         ctx.fillRect(sx, sy, 1, 1);
       }
       ctx.restore();
@@ -201,7 +208,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
       ctx.stroke();
 
-      // 4. Graticule (Lat/Lon grid)
+      // 4. Graticule
       ctx.beginPath();
       ctx.lineWidth = 0.5;
       ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
@@ -211,13 +218,11 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       // 5. Landmass Polygons (TopoJSON)
       if (countriesRef.current) {
         ctx.save();
-        // Land Fill
         ctx.beginPath();
         pathGenerator(countriesRef.current);
         ctx.fillStyle = '#111f38';
         ctx.fill();
 
-        // Land Borders
         ctx.lineWidth = 0.8;
         ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
         ctx.stroke();
@@ -227,7 +232,6 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       // Helper to test if a coordinate is on the visible front hemisphere
       const isCoordVisible = (lat: number, lng: number): boolean => {
         const [yaw, pitch] = rotationRef.current;
-        // Angular distance from projection center
         const rad = Math.PI / 180;
         const centerLat = -pitch;
         const centerLng = -yaw;
@@ -240,7 +244,165 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         return c < Math.PI / 2;
       };
 
-      // 6. Strategic City Beacons
+      const time = Date.now() * 0.003;
+      const currentMode = viewModeRef.current;
+
+      // 6. COUNTRY ATTACK DOT DENSITY & HOTSPOT CLUSTERS (Primary Request!)
+      if (currentMode === 'dots' || currentMode === 'hybrid') {
+        REAL_COUNTRY_THREATS.forEach((ct) => {
+          const [cLat, cLng] = ct.centerCoords;
+          if (!isCoordVisible(cLat, cLng)) return;
+
+          const centerProj = projection([cLng, cLat]);
+          if (!centerProj) return;
+
+          const [cx, cy] = centerProj;
+
+          // Concentric Threat Pulse Ring (radius scaled by incident volume)
+          const baseRadius = 8 + Math.min(24, Math.log10(ct.incidentCount) * 6);
+          const pulseR = baseRadius + Math.sin(time * 1.5 + cLat) * 4;
+
+          const beaconColor =
+            ct.severity === 'CRITICAL' ? '#ef4444' : ct.severity === 'HIGH' ? '#f59e0b' : '#00f0ff';
+
+          // Outer shockwave wave
+          ctx.beginPath();
+          ctx.arc(cx, cy, pulseR + 6, 0, Math.PI * 2);
+          ctx.strokeStyle = `${beaconColor}33`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Core country anchor
+          ctx.beginPath();
+          ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = beaconColor;
+          ctx.shadowColor = beaconColor;
+          ctx.shadowBlur = 8;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Country Label + Ingress Count Badge
+          ctx.font = 'bold 10px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+          ctx.shadowBlur = 4;
+          ctx.fillText(`${ct.flag} ${ct.country}`, cx + 8, cy - 4);
+          ctx.font = '9px "JetBrains Mono", monospace';
+          ctx.fillStyle = beaconColor;
+          ctx.fillText(`⚡ ${ct.incidentCount.toLocaleString()} Ingress`, cx + 8, cy + 8);
+          ctx.shadowBlur = 0;
+
+          // RENDER INDIVIDUAL INCIDENT DOTS INSIDE THE COUNTRY
+          ct.dots.forEach((dot, dIdx) => {
+            if (!isCoordVisible(dot.lat, dot.lng)) return;
+            const dotProj = projection([dot.lng, dot.lat]);
+            if (!dotProj) return;
+
+            const [dx, dy] = dotProj;
+            const dotPulse = Math.sin(time * 2 + dIdx * 1.2) * 0.4 + 0.6; // 0.2 to 1.0
+
+            // Glowing threat dot
+            ctx.beginPath();
+            ctx.arc(dx, dy, 2 + dot.intensity * 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = `${beaconColor}${Math.floor(dotPulse * 255).toString(16).padStart(2, '0')}`;
+            ctx.fill();
+
+            // Tiny dot halo
+            ctx.beginPath();
+            ctx.arc(dx, dy, 4 + dot.intensity * 2, 0, Math.PI * 2);
+            ctx.strokeStyle = `${beaconColor}40`;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          });
+        });
+      }
+
+      // 7. BALLISTIC ARCS & PHOTON PULSES (Rendered when in 'arcs' or 'hybrid' mode)
+      if (currentMode === 'arcs' || currentMode === 'hybrid') {
+        attacks.forEach((atk, idx) => {
+          const [sLat, sLng] = atk.sourceCoords;
+          const [tLat, tLng] = atk.targetCoords;
+
+          const isSourceVis = isCoordVisible(sLat, sLng);
+          const isTargetVis = isCoordVisible(tLat, tLng);
+
+          if (!isSourceVis && !isTargetVis) return;
+
+          const interpolator = geoInterpolate([sLng, sLat], [tLng, tLat]);
+          const pointsCount = 36;
+          const arcPoints: [number, number][] = [];
+
+          for (let p = 0; p <= pointsCount; p++) {
+            const t = p / pointsCount;
+            const [lon, lat] = interpolator(t);
+            const proj = projection([lon, lat]);
+            if (proj) {
+              const elevation = Math.sin(t * Math.PI) * (radius * 0.14);
+              const dx = proj[0] - center[0];
+              const dy = proj[1] - center[1];
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              const ex = proj[0] + (dx / dist) * elevation;
+              const ey = proj[1] + (dy / dist) * elevation;
+              arcPoints.push([ex, ey]);
+            }
+          }
+
+          if (arcPoints.length < 2) return;
+
+          const arcColors = ['#00f0ff', '#a855f7', '#ef4444', '#f59e0b', '#10b981'];
+          const baseColor = atk.severity === 'CRITICAL' ? '#ef4444' : arcColors[idx % arcColors.length];
+
+          // Trajectory curve
+          ctx.beginPath();
+          ctx.moveTo(arcPoints[0][0], arcPoints[0][1]);
+          for (let i = 1; i < arcPoints.length; i++) {
+            ctx.lineTo(arcPoints[i][0], arcPoints[i][1]);
+          }
+          ctx.strokeStyle = `${baseColor}44`;
+          ctx.lineWidth = atk === selectedAttack ? 2.5 : 1.2;
+          ctx.stroke();
+
+          // Photon Head
+          let pulse = pulsesRef.current.find((p) => p.attackIndex === idx);
+          if (!pulse) {
+            pulse = { attackIndex: idx, progress: (idx * 0.2) % 1, speed: 0.004 };
+            pulsesRef.current.push(pulse);
+          }
+
+          pulse.progress += pulse.speed;
+          if (pulse.progress > 1) pulse.progress = 0;
+
+          const t = pulse.progress;
+          const pointIdx = Math.min(arcPoints.length - 1, Math.floor(t * (arcPoints.length - 1)));
+          const curPt = arcPoints[pointIdx];
+
+          if (curPt) {
+            ctx.beginPath();
+            ctx.arc(curPt[0], curPt[1], 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = baseColor;
+            ctx.shadowBlur = 10;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+
+          // Destination Impact Ring
+          if (isTargetVis && t > 0.85) {
+            const tProj = projection([tLng, tLat]);
+            if (tProj) {
+              const rippleR = ((t - 0.85) / 0.15) * 22;
+              const rippleAlpha = 1 - (t - 0.85) / 0.15;
+              ctx.beginPath();
+              ctx.arc(tProj[0], tProj[1], rippleR, 0, Math.PI * 2);
+              ctx.strokeStyle = `${baseColor}${Math.floor(rippleAlpha * 255).toString(16).padStart(2, '0')}`;
+              ctx.lineWidth = 1.5;
+              ctx.stroke();
+            }
+          }
+        });
+      }
+
+      // 8. Strategic Cities
       STRATEGIC_CITIES.forEach((city) => {
         const [lat, lng] = city.coords;
         if (!isCoordVisible(lat, lng)) return;
@@ -248,128 +410,10 @@ export const Globe3D: React.FC<Globe3DProps> = ({
         if (!proj) return;
 
         const [cx, cy] = proj;
-
-        // Outer pulsing ring
-        const time = Date.now() * 0.003;
-        const pulseR = 3 + Math.sin(time + lat) * 2;
-
-        ctx.beginPath();
-        ctx.arc(cx, cy, pulseR + 4, 0, Math.PI * 2);
-        ctx.strokeStyle = `${city.color}40`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Inner beacon dot
         ctx.beginPath();
         ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
         ctx.fillStyle = city.color;
         ctx.fill();
-
-        // City Label (high-precision typography)
-        ctx.font = '10px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#e2e8f0';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 4;
-        ctx.fillText(city.name, cx + 6, cy + 3);
-        ctx.shadowBlur = 0;
-      });
-
-      // 7. DeepAstro Multi-color Ballistic Arcs & Photon Pulses
-      attacks.forEach((atk, idx) => {
-        const [sLat, sLng] = atk.sourceCoords;
-        const [tLat, tLng] = atk.targetCoords;
-
-        const isSourceVis = isCoordVisible(sLat, sLng);
-        const isTargetVis = isCoordVisible(tLat, tLng);
-
-        // At least one end or middle should be visible
-        if (!isSourceVis && !isTargetVis) return;
-
-        // Multi-point great-circle curve with elevated Bezier 3D arc
-        const interpolator = geoInterpolate([sLng, sLat], [tLng, tLat]);
-        const pointsCount = 36;
-        const arcPoints: [number, number][] = [];
-
-        for (let p = 0; p <= pointsCount; p++) {
-          const t = p / pointsCount;
-          const [lon, lat] = interpolator(t);
-          const proj = projection([lon, lat]);
-          if (proj) {
-            // Arc elevation: parabole peaking at t=0.5
-            const elevation = Math.sin(t * Math.PI) * (radius * 0.14);
-            // Vector from center to point
-            const dx = proj[0] - center[0];
-            const dy = proj[1] - center[1];
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const ex = proj[0] + (dx / dist) * elevation;
-            const ey = proj[1] + (dy / dist) * elevation;
-            arcPoints.push([ex, ey]);
-          }
-        }
-
-        if (arcPoints.length < 2) return;
-
-        // Color determination per attack
-        const arcColors = ['#00f0ff', '#a855f7', '#ef4444', '#f59e0b', '#10b981'];
-        const baseColor = atk.severity === 'CRITICAL' ? '#ef4444' : arcColors[idx % arcColors.length];
-
-        // Draw Base Ballistic Trajectory Line
-        ctx.beginPath();
-        ctx.moveTo(arcPoints[0][0], arcPoints[0][1]);
-        for (let i = 1; i < arcPoints.length; i++) {
-          ctx.lineTo(arcPoints[i][0], arcPoints[i][1]);
-        }
-        ctx.strokeStyle = `${baseColor}44`;
-        ctx.lineWidth = atk === selectedAttack ? 2.5 : 1.2;
-        ctx.stroke();
-
-        // 8. Animated Photon Pulse travelling along the trajectory
-        let pulse = pulsesRef.current.find((p) => p.attackIndex === idx);
-        if (!pulse) {
-          pulse = { attackIndex: idx, progress: (idx * 0.2) % 1, speed: 0.004 };
-          pulsesRef.current.push(pulse);
-        }
-
-        pulse.progress += pulse.speed;
-        if (pulse.progress > 1) {
-          pulse.progress = 0;
-        }
-
-        // Calculate current position of photon
-        const t = pulse.progress;
-        const pointIdx = Math.min(arcPoints.length - 1, Math.floor(t * (arcPoints.length - 1)));
-        const curPt = arcPoints[pointIdx];
-
-        if (curPt) {
-          // Photon head
-          ctx.beginPath();
-          ctx.arc(curPt[0], curPt[1], 3.5, 0, Math.PI * 2);
-          ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = baseColor;
-          ctx.shadowBlur = 10;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-
-          // Glowing halo
-          ctx.beginPath();
-          ctx.arc(curPt[0], curPt[1], 6, 0, Math.PI * 2);
-          ctx.fillStyle = `${baseColor}66`;
-          ctx.fill();
-        }
-
-        // Impact Shockwave at Destination when photon hits end (t > 0.85)
-        if (isTargetVis && t > 0.85) {
-          const tProj = projection([tLng, tLat]);
-          if (tProj) {
-            const rippleR = ((t - 0.85) / 0.15) * 22;
-            const rippleAlpha = 1 - (t - 0.85) / 0.15;
-            ctx.beginPath();
-            ctx.arc(tProj[0], tProj[1], rippleR, 0, Math.PI * 2);
-            ctx.strokeStyle = `${baseColor}${Math.floor(rippleAlpha * 255).toString(16).padStart(2, '0')}`;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-          }
-        }
       });
 
       animId = requestAnimationFrame(render);
@@ -401,7 +445,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const handleMouseDown = (e: React.MouseEvent) => {
     isDraggingRef.current = true;
     lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-    targetRotationRef.current = null; // Cancel any ongoing lerp
+    targetRotationRef.current = null;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -419,14 +463,12 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     isDraggingRef.current = false;
   };
 
-  // Wheel Zoom Controls
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const zoomDelta = e.deltaY < 0 ? 0.08 : -0.08;
     zoomRef.current = Math.max(0.65, Math.min(3.2, zoomRef.current + zoomDelta));
   };
 
-  // Reset to default vantage
   const handleReset = () => {
     targetRotationRef.current = [-15, -20, 0];
     zoomRef.current = 1;
@@ -450,17 +492,59 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       <canvas ref={canvasRef} className="w-full h-full block" />
 
       {/* Floating Tactical Overlay HUD */}
-      <div className="absolute top-3 left-3 flex flex-col gap-1 pointer-events-none font-mono">
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#080d18]/80 border border-cyan-500/30 text-[11px] text-cyan-300 backdrop-blur-md">
+      <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none font-mono">
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#080d18]/85 border border-cyan-500/30 text-[11px] text-cyan-300 backdrop-blur-md">
           <Globe2 className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
-          <span className="font-bold">DEEPASTRO 3D ORTHOGRAPHIC ENGINE</span>
+          <span className="font-bold">COUNTRY ATTACK DOT DENSITY MATRIX</span>
         </div>
         <div className="text-[9px] text-slate-400 px-1">
-          Borders: TopoJSON 110m // Ballistic Arcs: {attacks.length} Active
+          Density Mode: {viewMode.toUpperCase()} // TopoJSON Real World Borders
         </div>
       </div>
 
-      {/* Interactive Controls Pill */}
+      {/* Visualization Mode Switcher Pill */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 p-1 rounded-xl bg-[#080d18]/90 border border-cyan-500/30 shadow-xl backdrop-blur-md text-xs font-mono">
+        <button
+          onClick={() => setViewMode('dots')}
+          className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+            viewMode === 'dots'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-[0_0_8px_rgba(0,240,255,0.4)]'
+              : 'text-slate-400 hover:text-white'
+          }`}
+          title="Country Threat Dots Density"
+        >
+          <Radio className="w-3 h-3 text-cyan-400" />
+          <span>Country Dots</span>
+        </button>
+
+        <button
+          onClick={() => setViewMode('hybrid')}
+          className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+            viewMode === 'hybrid'
+              ? 'bg-purple-500/20 text-purple-300 border border-purple-400/50 shadow-[0_0_8px_rgba(168,85,247,0.4)]'
+              : 'text-slate-400 hover:text-white'
+          }`}
+          title="Hybrid: Dots & Ballistic Arcs"
+        >
+          <Layers className="w-3 h-3 text-purple-400" />
+          <span>Hybrid</span>
+        </button>
+
+        <button
+          onClick={() => setViewMode('arcs')}
+          className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+            viewMode === 'arcs'
+              ? 'bg-blue-500/20 text-blue-300 border border-blue-400/50 shadow-[0_0_8px_rgba(59,130,246,0.4)]'
+              : 'text-slate-400 hover:text-white'
+          }`}
+          title="DeepAstro Ballistic Arcs Only"
+        >
+          <Sparkles className="w-3 h-3 text-blue-400" />
+          <span>Arcs</span>
+        </button>
+      </div>
+
+      {/* Interactive Navigation Controls Pill */}
       <div className="absolute bottom-3 right-3 flex items-center gap-1.5 p-1 rounded-xl bg-[#080d18]/90 border border-cyan-500/30 shadow-xl backdrop-blur-md">
         <button
           onClick={() => {
