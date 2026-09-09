@@ -15,7 +15,9 @@ import {
   Cpu, 
   Radio, 
   Sparkles,
-  Shield
+  Shield,
+  Search,
+  Fingerprint
 } from 'lucide-react';
 import { SpiderTabId } from '../../types';
 
@@ -117,7 +119,23 @@ export const SpiderHeader: React.FC<SpiderHeaderProps> = ({
             <span>Web Crawler</span>
           </button>
 
-          {/* 3. Neural Web */}
+          {/* 3. Forensics & OSINT Matrix */}
+          <button
+            onClick={() => onSelectTab('forensics')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all whitespace-nowrap ${
+              activeTab === 'forensics'
+                ? 'bg-gradient-to-r from-cyan-500/25 via-blue-500/25 to-indigo-500/25 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(0,240,255,0.25)]'
+                : 'text-gray-400 hover:text-cyan-300 hover:bg-white/5'
+            }`}
+          >
+            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Investigate</span>
+            <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              50+ OSINT
+            </span>
+          </button>
+
+          {/* 4. Neural Web */}
           <button
             onClick={() => onSelectTab('brain')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all whitespace-nowrap ${

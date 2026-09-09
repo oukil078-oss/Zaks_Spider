@@ -13,6 +13,7 @@ import { SecondBrainView } from './components/brain/SecondBrainView';
 import { VulnNewsView } from './components/news/VulnNewsView';
 import { PentestBuddyView } from './components/copilot/PentestBuddyView';
 import { OperatorProfileView } from './components/profile/OperatorProfileView';
+import { ForensicsInvestigationView } from './components/forensics/ForensicsInvestigationView';
 import { api } from './services/api';
 import { 
   SpiderTabId, 
@@ -20,7 +21,11 @@ import {
   PentestCommandItem, 
   ScrapedResult, 
   ThreatAnalysis,
-  VulnNewsItem 
+  VulnNewsItem,
+  ForensicCaseDossier,
+  UsernameCheckResult,
+  IpLookupResult,
+  PhoneLookupResult
 } from './types';
 
 export const App: React.FC = () => {
@@ -58,16 +63,17 @@ export const App: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // Keyboard Shortcuts: Alt+1 through Alt+6
+  // Keyboard Shortcuts: Alt+1 through Alt+7
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.altKey) {
         if (e.key === '1') setActiveTab('pentest');
         else if (e.key === '2') setActiveTab('crawler');
-        else if (e.key === '3') setActiveTab('brain');
-        else if (e.key === '4') setActiveTab('vuln-news');
-        else if (e.key === '5') setActiveTab('copilot');
-        else if (e.key === '6') setActiveTab('operator');
+        else if (e.key === '3') setActiveTab('forensics');
+        else if (e.key === '4') setActiveTab('brain');
+        else if (e.key === '5') setActiveTab('vuln-news');
+        else if (e.key === '6') setActiveTab('copilot');
+        else if (e.key === '7') setActiveTab('operator');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -327,6 +333,134 @@ ${analysis || 'No detailed analysis attached.'}
     showToast('🕸️ Operator Dossier weaved into Neural Web!');
   };
 
+  // Weave Consolidated Case Dossier to Second Brain
+  const handleWeaveDossierToBrain = async (dossier: ForensicCaseDossier, report: string) => {
+    const noteTitle = `OSINT Case Dossier: ${dossier.caseId} (${dossier.targetHandle || 'Multi-Vector'})`;
+    const cleanTitle = noteTitle.replace(/[\\/:*?"<>|]/g, '');
+    const newNote: BrainNoteItem = {
+      id: `case-dossier-${Date.now()}`,
+      title: noteTitle,
+      path: `Forensics/${cleanTitle}.md`,
+      relativePath: `Forensics/${cleanTitle}.md`,
+      category: 'Forensics & OSINT',
+      tags: ['osint', 'forensics', 'case-dossier', dossier.targetHandle || 'target'],
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      frontmatter: {
+        title: noteTitle,
+        category: 'Forensics & OSINT',
+        caseId: dossier.caseId,
+        investigator: dossier.investigator,
+        targetHandle: dossier.targetHandle,
+        targetIp: dossier.targetIp,
+        targetPhone: dossier.targetPhone,
+      },
+      links: ['Arachnid Web Crawler & Threat Intelligence Architecture', 'eJPTv2 & OSCP Penetration Testing Methodology'],
+      wordCount: report.split(/\s+/).length,
+      content: `# 🛡️ ${noteTitle}\n\n${report}`,
+    };
+    await api.saveNote(newNote);
+    await loadData();
+    setSelectedNoteId(newNote.id);
+    setActiveTab('brain');
+    showToast(`🕸️ Forensic Dossier ${dossier.caseId} weaved into Neural Web!`);
+  };
+
+  // Weave Single Username Finding to Second Brain
+  const handleWeaveUsernameFindingToBrain = async (item: UsernameCheckResult) => {
+    const noteTitle = `OSINT Profile: ${item.platform} — @${item.username}`;
+    const cleanTitle = noteTitle.replace(/[\\/:*?"<>|]/g, '');
+    const newNote: BrainNoteItem = {
+      id: `osint-user-${Date.now()}`,
+      title: noteTitle,
+      path: `Forensics/Profiles/${cleanTitle}.md`,
+      relativePath: `Forensics/Profiles/${cleanTitle}.md`,
+      category: 'Forensics & OSINT',
+      tags: ['osint', 'username', item.platform.toLowerCase(), item.category.toLowerCase()],
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      frontmatter: {
+        title: noteTitle,
+        category: 'Forensics & OSINT',
+        platform: item.platform,
+        profileUrl: item.profileUrl,
+        verifiedStatus: item.status,
+      },
+      links: ['Arachnid Web Crawler & Threat Intelligence Architecture'],
+      wordCount: 120,
+      content: `# 👤 ${noteTitle}\n\n- **Platform:** ${item.platform}\n- **Category:** ${item.category}\n- **Profile URL:** [${item.profileUrl}](${item.profileUrl})\n- **Verification Status:** ${item.status.toUpperCase()}\n- **Latency:** ${item.latencyMs || 0}ms\n\n${item.notes ? `### Metadata Notes\n${item.notes}\n` : ''}`,
+    };
+    await api.saveNote(newNote);
+    await loadData();
+    setSelectedNoteId(newNote.id);
+    setActiveTab('brain');
+    showToast(`🕸️ Profile @${item.username} on ${item.platform} weaved into Brain!`);
+  };
+
+  // Weave IP Finding to Second Brain
+  const handleWeaveIpFindingToBrain = async (ip: IpLookupResult) => {
+    const noteTitle = `IP Telemetry Dossier: ${ip.query} (${ip.city}, ${ip.countryCode})`;
+    const cleanTitle = noteTitle.replace(/[\\/:*?"<>|]/g, '');
+    const newNote: BrainNoteItem = {
+      id: `osint-ip-${Date.now()}`,
+      title: noteTitle,
+      path: `Forensics/IPs/${cleanTitle}.md`,
+      relativePath: `Forensics/IPs/${cleanTitle}.md`,
+      category: 'Forensics & OSINT',
+      tags: ['osint', 'ip-intelligence', ip.countryCode.toLowerCase()],
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      frontmatter: {
+        title: noteTitle,
+        category: 'Forensics & OSINT',
+        query: ip.query,
+        city: ip.city,
+        country: ip.country,
+        asn: ip.as,
+        threatScore: ip.threatScore || 0,
+      },
+      links: ['Arachnid Web Crawler & Threat Intelligence Architecture'],
+      wordCount: 160,
+      content: `# 🌐 ${noteTitle}\n\n- **Target IP / Host:** \`${ip.query}\`\n- **Location:** ${ip.city}, ${ip.regionName}, ${ip.country} (${ip.lat}, ${ip.lon})\n- **Autonomous System (ASN):** ${ip.as}\n- **ISP:** ${ip.isp}\n- **Reverse DNS:** \`${ip.reverse || ip.query}\`\n- **Threat Score:** ${ip.threatScore || 10}/100\n- **Proxy / VPN:** ${ip.proxy ? 'YES' : 'NO'}\n- **Datacenter / Hosting:** ${ip.hosting ? 'YES' : 'NO'}`,
+    };
+    await api.saveNote(newNote);
+    await loadData();
+    setSelectedNoteId(newNote.id);
+    setActiveTab('brain');
+    showToast(`🕸️ IP Intel for ${ip.query} weaved into Brain!`);
+  };
+
+  // Weave Phone Finding to Second Brain
+  const handleWeavePhoneFindingToBrain = async (phone: PhoneLookupResult) => {
+    const noteTitle = `Telephony Record: ${phone.formattedE164} (${phone.countryName})`;
+    const cleanTitle = noteTitle.replace(/[\\/:*?"<>|]/g, '');
+    const newNote: BrainNoteItem = {
+      id: `osint-phone-${Date.now()}`,
+      title: noteTitle,
+      path: `Forensics/Telephony/${cleanTitle}.md`,
+      relativePath: `Forensics/Telephony/${cleanTitle}.md`,
+      category: 'Forensics & OSINT',
+      tags: ['osint', 'phone', phone.countryCode.replace('+', '')],
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      frontmatter: {
+        title: noteTitle,
+        category: 'Forensics & OSINT',
+        e164: phone.formattedE164,
+        country: phone.countryName,
+        lineType: phone.lineType,
+      },
+      links: ['Arachnid Web Crawler & Threat Intelligence Architecture'],
+      wordCount: 130,
+      content: `# 📱 ${noteTitle}\n\n- **E.164 Number:** \`${phone.formattedE164}\`\n- **International Notation:** \`${phone.formattedInternational}\`\n- **Country:** ${phone.countryFlag} ${phone.countryName} (${phone.countryCode})\n- **Line Type:** ${phone.lineType}\n- **Carrier:** ${phone.carrier || 'Standard Operator'}\n- **Risk Evaluation:** ${phone.riskScore} (${phone.riskReason || 'ITU-T compliant'})\n\n### OSINT Pivots\n${phone.pivotLinks.map(p => `- [${p.label}](${p.url}): ${p.description}`).join('\n')}`,
+    };
+    await api.saveNote(newNote);
+    await loadData();
+    setSelectedNoteId(newNote.id);
+    setActiveTab('brain');
+    showToast(`🕸️ Phone Record ${phone.formattedE164} weaved into Brain!`);
+  };
+
   return (
     <div className="relative min-h-screen bg-[#06090e] text-gray-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200 flex flex-col">
       {/* Interactive Spiderweb Particle Canvas in Background */}
@@ -362,6 +496,16 @@ ${analysis || 'No detailed analysis attached.'}
         {activeTab === 'crawler' && (
           <WebSpiderView
             onWeaveScrapedResultToBrain={handleWeaveScrapedResultToBrain}
+          />
+        )}
+
+        {/* 3. Forensics & OSINT Investigation Matrix */}
+        {activeTab === 'forensics' && (
+          <ForensicsInvestigationView
+            onWeaveDossierToBrain={handleWeaveDossierToBrain}
+            onWeaveUsernameResultToBrain={handleWeaveUsernameFindingToBrain}
+            onWeaveIpResultToBrain={handleWeaveIpFindingToBrain}
+            onWeavePhoneResultToBrain={handleWeavePhoneFindingToBrain}
           />
         )}
 

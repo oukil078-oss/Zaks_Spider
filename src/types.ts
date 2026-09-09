@@ -2,7 +2,7 @@
 // ZAK'S SPIDER — CORE SYSTEM DATA TYPES
 // ==========================================
 
-export type SpiderTabId = 'pentest' | 'crawler' | 'brain' | 'vuln-news' | 'copilot' | 'operator';
+export type SpiderTabId = 'pentest' | 'crawler' | 'forensics' | 'brain' | 'vuln-news' | 'copilot' | 'operator';
 
 // --- Pentest Lab & Commands Types ---
 export interface CommandParameter {
@@ -329,3 +329,107 @@ export interface OperatorProfile {
   skills: OperatorSkillGroup[];
   projects: OperatorProject[];
 }
+
+// ==========================================
+// FORENSICS & OSINT INVESTIGATION MATRIX TYPES
+// ==========================================
+
+export type ForensicsSubTab = 'username' | 'ip' | 'phone' | 'dossier';
+
+export type OsintCategory = 'Developer' | 'Social' | 'Media' | 'Gaming' | 'Portfolio';
+
+export interface UsernamePlatformDef {
+  id: string;
+  name: string;
+  category: OsintCategory;
+  urlPattern: string; // e.g. https://github.com/{username}
+  checkUrlPattern?: string; // Optional direct API or probe URL
+  method?: 'GET' | 'HEAD' | 'JSON_API';
+  expectedStatus?: number[]; // default [200]
+  errorStatus?: number[]; // default [404]
+  icon: string;
+  description: string;
+}
+
+export type UsernameCheckStatus = 'checking' | 'found' | 'not_found' | 'rate_limited' | 'error';
+
+export interface UsernameCheckResult {
+  id: string;
+  platform: string;
+  category: OsintCategory;
+  username: string;
+  profileUrl: string;
+  status: UsernameCheckStatus;
+  httpStatus?: number;
+  latencyMs?: number;
+  icon: string;
+  verifiedAt?: string;
+  notes?: string;
+}
+
+export interface IpLookupResult {
+  query: string;
+  status: 'success' | 'fail';
+  message?: string;
+  country: string;
+  countryCode: string;
+  region: string;
+  regionName: string;
+  city: string;
+  zip: string;
+  lat: number;
+  lon: number;
+  timezone: string;
+  isp: string;
+  org: string;
+  as: string;
+  reverse?: string;
+  mobile?: boolean;
+  proxy?: boolean;
+  hosting?: boolean;
+  threatScore?: number;
+  fetchedAt: string;
+}
+
+export interface PhonePivotLink {
+  label: string;
+  url: string;
+  icon: string;
+  description: string;
+}
+
+export interface PhoneLookupResult {
+  rawInput: string;
+  valid: boolean;
+  formattedE164: string;
+  formattedInternational: string;
+  formattedNational: string;
+  countryCode: string;
+  countryName: string;
+  countryFlag: string;
+  carrier?: string;
+  lineType: 'Mobile' | 'Fixed Line' | 'VoIP' | 'Toll-Free' | 'Unknown';
+  riskScore: 'Low' | 'Moderate' | 'High';
+  riskReason?: string;
+  timeZone?: string;
+  pivotLinks: PhonePivotLink[];
+  analyzedAt: string;
+}
+
+export interface ForensicCaseDossier {
+  caseId: string;
+  caseTitle: string;
+  investigator: string;
+  affiliation: string;
+  createdAt: string;
+  targetHandle?: string;
+  targetIp?: string;
+  targetPhone?: string;
+  usernameFindings: UsernameCheckResult[];
+  ipFindings?: IpLookupResult;
+  phoneFindings?: PhoneLookupResult;
+  executiveSummary?: string;
+  aiPersonaAnalysis?: string;
+  complianceConsent: boolean;
+}
+
