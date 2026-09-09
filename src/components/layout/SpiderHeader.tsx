@@ -93,6 +93,26 @@ export const SpiderHeader: React.FC<SpiderHeaderProps> = ({
 
         {/* Center: Module Navigation Tabs */}
         <nav className="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-md overflow-x-auto max-w-full">
+          {/* 0. Enterprise SOC Base */}
+          <button
+            onClick={() => onSelectTab('soc')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all whitespace-nowrap ${
+              activeTab === 'soc'
+                ? 'bg-gradient-to-r from-cyan-500/30 to-blue-600/30 text-cyan-300 border border-cyan-400/60 shadow-[0_0_15px_rgba(0,240,255,0.3)]'
+                : 'text-gray-400 hover:text-cyan-300 hover:bg-white/5'
+            }`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+            </span>
+            <Shield className="w-3.5 h-3.5 text-cyan-400" />
+            <span>SOC Base</span>
+            <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hidden sm:inline">
+              3D GLOBE
+            </span>
+          </button>
+
           {/* 1. Pentest Lab */}
           <button
             onClick={() => onSelectTab('pentest')}

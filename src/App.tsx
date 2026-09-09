@@ -7,8 +7,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SpiderWebCanvas } from './components/canvas/SpiderWebCanvas';
 import { SpiderHeader } from './components/layout/SpiderHeader';
+import { SocCommandCenterView } from './components/soc/SocCommandCenterView';
 import { PentestLabView } from './components/pentest/PentestLabView';
 import { WebSpiderView } from './components/crawler/WebSpiderView';
+import { RadialBrainView } from './components/brain/RadialBrainView';
 import { SecondBrainView } from './components/brain/SecondBrainView';
 import { VulnNewsView } from './components/news/VulnNewsView';
 import { PentestBuddyView } from './components/copilot/PentestBuddyView';
@@ -25,11 +27,14 @@ import {
   ForensicCaseDossier,
   UsernameCheckResult,
   IpLookupResult,
-  PhoneLookupResult
+  PhoneLookupResult,
+  FullNameProfile,
+  SocEvent
 } from './types';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<SpiderTabId>('pentest');
+  const [activeTab, setActiveTab] = useState<SpiderTabId>('soc');
+  const [brainMode, setBrainMode] = useState<'radial' | 'vault'>('radial');
   const [notes, setNotes] = useState<BrainNoteItem[]>([]);
   const [commands, setCommands] = useState<PentestCommandItem[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -63,17 +68,18 @@ export const App: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // Keyboard Shortcuts: Alt+1 through Alt+7
+  // Keyboard Shortcuts: Alt+1 through Alt+8
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.altKey) {
-        if (e.key === '1') setActiveTab('pentest');
-        else if (e.key === '2') setActiveTab('crawler');
-        else if (e.key === '3') setActiveTab('forensics');
-        else if (e.key === '4') setActiveTab('brain');
-        else if (e.key === '5') setActiveTab('vuln-news');
-        else if (e.key === '6') setActiveTab('copilot');
-        else if (e.key === '7') setActiveTab('operator');
+        if (e.key === '1') setActiveTab('soc');
+        else if (e.key === '2') setActiveTab('pentest');
+        else if (e.key === '3') setActiveTab('crawler');
+        else if (e.key === '4') setActiveTab('forensics');
+        else if (e.key === '5') setActiveTab('brain');
+        else if (e.key === '6') setActiveTab('vuln-news');
+        else if (e.key === '7') setActiveTab('copilot');
+        else if (e.key === '8') setActiveTab('operator');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -461,6 +467,70 @@ ${analysis || 'No detailed analysis attached.'}
     showToast(`🕸️ Phone Record ${phone.formattedE164} weaved into Brain!`);
   };
 
+  // Weave Full Name Identity Profile to Second Brain
+  const handleWeaveIdentityToBrain = async (profile: FullNameProfile) => {
+    const noteTitle = `Target Identity Matrix: ${profile.fullName}`;
+    const cleanTitle = noteTitle.replace(/[\\/:*?"<>|]/g, '');
+    const newNote: BrainNoteItem = {
+      id: `osint-profile-${Date.now()}`,
+      title: noteTitle,
+      path: `Forensics/Identities/${cleanTitle}.md`,
+      relativePath: `Forensics/Identities/${cleanTitle}.md`,
+      category: 'Forensics & OSINT',
+      tags: ['identity', 'target-profile', 'osint', profile.firstName.toLowerCase(), profile.lastName.toLowerCase()],
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      frontmatter: {
+        title: noteTitle,
+        category: 'Forensics & OSINT',
+        fullName: profile.fullName,
+        company: profile.company,
+        location: profile.location,
+        aliasesCount: profile.knownAliases.length,
+      },
+      links: ['Arachnid Web Crawler & Threat Intelligence Architecture'],
+      wordCount: 220,
+      content: `# 👤 ${noteTitle}\n\n- **Target Name:** ${profile.fullName}\n- **Organization / Affiliation:** ${profile.company || 'Unknown'}\n- **Geographic Location / Wilaya:** ${profile.location || 'Unknown'}\n\n### Known & Permuted Handles\n${profile.knownAliases.map(a => `- \`@${a}\``).join('\n')}\n\n### Probable Email Addresses\n${profile.probableEmails.map(e => `- \`${e.email}\` (${e.confidence}% confidence - ${e.pattern})`).join('\n')}\n\n### Forensic Search Dorks\n${profile.searchDorks.map(d => `- [${d.label}](${d.url}): \`${d.query}\``).join('\n')}`,
+    };
+    await api.saveNote(newNote);
+    await loadData();
+    setSelectedNoteId(newNote.id);
+    setActiveTab('brain');
+    showToast(`🕸️ Target Profile for ${profile.fullName} weaved into Brain!`);
+  };
+
+  // Weave SOC Security Event to Second Brain
+  const handleWeaveSocEventToBrain = async (evt: SocEvent) => {
+    const noteTitle = `SOC Incident: ${evt.eventType} [${evt.severity}]`;
+    const cleanTitle = noteTitle.replace(/[\\/:*?"<>|]/g, '');
+    const newNote: BrainNoteItem = {
+      id: `soc-event-${Date.now()}`,
+      title: noteTitle,
+      path: `SOC/Incidents/${cleanTitle}.md`,
+      relativePath: `SOC/Incidents/${cleanTitle}.md`,
+      category: 'Threat Intel & SOC',
+      tags: ['soc', 'ids', 'honeypot', evt.severity.toLowerCase(), evt.protocol.toLowerCase()],
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      frontmatter: {
+        title: noteTitle,
+        category: 'Threat Intel & SOC',
+        severity: evt.severity,
+        sourceIP: evt.sourceIP,
+        targetPort: evt.targetPort,
+        actionTaken: evt.actionTaken,
+      },
+      links: ['Arachnid Web Crawler & Threat Intelligence Architecture'],
+      wordCount: 180,
+      content: `# 🚨 ${noteTitle}\n\n- **Timestamp:** ${evt.timestamp}\n- **Source IP / Host:** \`${evt.sourceIP}\` (${evt.country})\n- **Target Port / Path:** Port ${evt.targetPort} (\`${evt.requestPath || '/'}\`)\n- **Protocol:** ${evt.protocol}\n- **Action Taken:** \`${evt.actionTaken.toUpperCase()}\`\n- **MITRE ATT&CK Technique:** \`${evt.mitreTechnique || 'T1595 Reconnaissance'}\`\n\n### Signature & Heuristics\n\`\`\`\n${evt.signature}\n\`\`\`\n\n### Tactical Mitigation\n\`\`\`bash\n${evt.tacticalPlaybook || `iptables -A INPUT -s ${evt.sourceIP} -j DROP`}\n\`\`\``,
+    };
+    await api.saveNote(newNote);
+    await loadData();
+    setSelectedNoteId(newNote.id);
+    setActiveTab('brain');
+    showToast(`🕸️ Incident ${evt.id} weaved into Brain!`);
+  };
+
   return (
     <div className="relative min-h-screen bg-[#06090e] text-gray-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200 flex flex-col">
       {/* Interactive Spiderweb Particle Canvas in Background */}
@@ -483,6 +553,13 @@ ${analysis || 'No detailed analysis attached.'}
 
       {/* Main Module Content */}
       <main className="relative z-10 flex-1 pb-16">
+        {/* 0. Enterprise SOC Base (Images 1 & 2 Reference Design) */}
+        {activeTab === 'soc' && (
+          <SocCommandCenterView
+            onWeaveEventToBrain={handleWeaveSocEventToBrain}
+          />
+        )}
+
         {/* 1. Pentest Lab */}
         {activeTab === 'pentest' && (
           <PentestLabView
@@ -506,20 +583,57 @@ ${analysis || 'No detailed analysis attached.'}
             onWeaveUsernameResultToBrain={handleWeaveUsernameFindingToBrain}
             onWeaveIpResultToBrain={handleWeaveIpFindingToBrain}
             onWeavePhoneResultToBrain={handleWeavePhoneFindingToBrain}
+            onWeaveProfileToBrain={handleWeaveIdentityToBrain}
           />
         )}
 
-        {/* 3. Neural Web */}
+        {/* 4. Neural Web: Dual-Engine Switcher (Radial Constellation & Document Vault) */}
         {activeTab === 'brain' && (
-          <SecondBrainView
-            notes={notes}
-            onSaveNote={handleSaveNote}
-            onDeleteNote={handleDeleteNote}
-            selectedNoteId={selectedNoteId}
-          />
+          <div className="space-y-4">
+            {/* View Mode Toggle Header */}
+            <div className="max-w-7xl mx-auto px-4 pt-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 p-1 rounded-2xl bg-black/60 border border-cyan-500/20 backdrop-blur-md">
+                <button
+                  onClick={() => setBrainMode('radial')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5 ${
+                    brainMode === 'radial'
+                      ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-400/50 shadow-sm'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span>🕸️ Radial Orbital Constellation (Image 4 Master)</span>
+                </button>
+                <button
+                  onClick={() => setBrainMode('vault')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5 ${
+                    brainMode === 'vault'
+                      ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50 shadow-sm'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span>📄 Markdown Document Vault ({notes.length})</span>
+                </button>
+              </div>
+            </div>
+
+            {brainMode === 'radial' ? (
+              <RadialBrainView
+                notes={notes}
+                onSaveNote={handleSaveNote}
+                onDeleteNote={handleDeleteNote}
+              />
+            ) : (
+              <SecondBrainView
+                notes={notes}
+                onSaveNote={handleSaveNote}
+                onDeleteNote={handleDeleteNote}
+                selectedNoteId={selectedNoteId}
+              />
+            )}
+          </div>
         )}
 
-        {/* 4. Vuln News (LIVE KEV) */}
+        {/* 5. Vuln News (LIVE KEV) */}
         {activeTab === 'vuln-news' && (
           <VulnNewsView
             onWeaveCveToBrain={handleWeaveCveToBrain}
@@ -527,7 +641,7 @@ ${analysis || 'No detailed analysis attached.'}
           />
         )}
 
-        {/* 5. AI Pentest Buddy */}
+        {/* 6. AI Pentest Buddy */}
         {activeTab === 'copilot' && (
           <PentestBuddyView
             onWeaveChatToBrain={handleWeaveChatToBrain}
@@ -535,7 +649,7 @@ ${analysis || 'No detailed analysis attached.'}
           />
         )}
 
-        {/* 6. Operator Profile */}
+        {/* 7. Operator Profile */}
         {activeTab === 'operator' && (
           <OperatorProfileView
             onWeaveProfileToBrain={handleWeaveProfileToBrain}

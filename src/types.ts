@@ -2,7 +2,7 @@
 // ZAK'S SPIDER — CORE SYSTEM DATA TYPES
 // ==========================================
 
-export type SpiderTabId = 'pentest' | 'crawler' | 'forensics' | 'brain' | 'vuln-news' | 'copilot' | 'operator';
+export type SpiderTabId = 'soc' | 'forensics' | 'brain' | 'pentest' | 'crawler' | 'vuln-news' | 'copilot' | 'operator';
 
 // --- Pentest Lab & Commands Types ---
 export interface CommandParameter {
@@ -334,7 +334,7 @@ export interface OperatorProfile {
 // FORENSICS & OSINT INVESTIGATION MATRIX TYPES
 // ==========================================
 
-export type ForensicsSubTab = 'username' | 'ip' | 'phone' | 'dossier';
+export type ForensicsSubTab = 'username' | 'name' | 'ip' | 'phone' | 'dossier';
 
 export type OsintCategory = 'Developer' | 'Social' | 'Media' | 'Gaming' | 'Portfolio';
 
@@ -432,4 +432,124 @@ export interface ForensicCaseDossier {
   aiPersonaAnalysis?: string;
   complianceConsent: boolean;
 }
+
+// ==========================================
+// SOC COMMAND CENTER & INTRUSION DETECTION TYPES
+// ==========================================
+
+export type SocSeverity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Info';
+
+export interface SocEvent {
+  id: string;
+  timestamp: string;
+  sourceIp: string;
+  country: string;
+  countryFlag: string;
+  targetPort: number;
+  targetEndpoint: string;
+  eventType: string; // e.g. 'Nmap Service Fingerprint', 'SQL Injection Probe', 'Directory Traversal'
+  signature: string; // e.g. 'Nmap Scripting Engine (NSE) Discovery', 'Burp Intruder Fuzzing'
+  severity: SocSeverity;
+  status: 'Blocked' | 'Inspected' | 'Alert';
+  payloadSnippet?: string;
+  attackPhase: 'Reconnaissance' | 'Initial Access' | 'Execution' | 'Credential Access' | 'Discovery';
+  mitigationTip: string;
+  mitreTechnique?: string; // e.g. 'T1595.002 - Active Scanning'
+}
+
+export interface ThreatArc {
+  id: string;
+  startLat: number;
+  startLon: number;
+  endLat: number;
+  endLon: number;
+  color: string;
+  sourceCity: string;
+  targetCity: string;
+  severity: SocSeverity;
+}
+
+export interface SocStats {
+  securityScore: number;
+  activeThreatsCount: number;
+  packetsIn: number;
+  packetsOut: number;
+  bandwidthGbIn: number;
+  bandwidthGbOut: number;
+  threatsBlocked: number;
+  protectedDevices: number;
+  aiConfidence: {
+    malware: number;
+    anomaly: number;
+    attribution: number;
+  };
+}
+
+// ==========================================
+// TARGET IDENTITY & RADIAL CONSTELLATION TYPES
+// ==========================================
+
+export interface TargetProfile {
+  id: string;
+  name: string;
+  handle: string;
+  role: string;
+  category: 'High-Value Target' | 'Threat Actor' | 'Audited Asset' | 'Person of Interest';
+  organization?: string;
+  email?: string;
+  phone?: string;
+  ip?: string;
+  location?: string;
+  wilaya?: string;
+  riskLevel: 'Critical' | 'High' | 'Medium' | 'Low';
+  tags: string[];
+  notesCount: number;
+  avatar?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RadialClusterCategory = 
+  | 'social' 
+  | 'developer' 
+  | 'network' 
+  | 'telephony' 
+  | 'personal' 
+  | 'vulnerabilities' 
+  | 'notes';
+
+export interface RadialLeafItem {
+  id: string;
+  clusterId: RadialClusterCategory;
+  label: string;
+  value: string;
+  url?: string;
+  status: 'verified' | 'unverified' | 'critical' | 'alert';
+  strength: 'strong' | 'medium' | 'weak';
+  metadata?: Record<string, any>;
+}
+
+export interface RadialClusterDef {
+  id: RadialClusterCategory;
+  title: string;
+  color: string;
+  ringIndex: number;
+  icon: string;
+  count: number;
+  riskScore: number;
+  leaves: RadialLeafItem[];
+}
+
+export interface FullNameProfile {
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  knownAliases: string[];
+  company?: string;
+  location?: string;
+  wilaya?: string;
+  probableEmails: { email: string; pattern: string; confidence: number }[];
+  searchDorks: { label: string; query: string; url: string }[];
+}
+
 
