@@ -7,9 +7,10 @@ import {
 } from 'lucide-react';
 import { UsernamePlatformDef, UsernameCheckResult } from '../../types';
 import { AlgeriaGisMap } from '../gis/AlgeriaGisMap';
+import { GodsEyeCockpit } from '../geoint/GodsEyeCockpit';
 
 interface ForensicsViewProps {
-  initialTab?: 'username' | 'name' | 'phone' | 'gis' | 'dossier';
+  initialTab?: 'username' | 'name' | 'phone' | 'gis' | 'dossier' | 'gods-eye';
 }
 
 const PLATFORMS_52: UsernamePlatformDef[] = [
@@ -68,7 +69,7 @@ const PLATFORMS_52: UsernamePlatformDef[] = [
 ];
 
 export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'username' }) => {
-  const [activeTab, setActiveTab] = useState<'username' | 'name' | 'phone' | 'gis' | 'dossier'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'username' | 'name' | 'phone' | 'gis' | 'dossier' | 'gods-eye'>(initialTab);
   const [query, setQuery] = useState('cyber_operator');
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -80,21 +81,21 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
   }, [initialTab]);
 
   // Full Name & Google Dorks State
-  const [firstName, setFirstName] = useState('Zakaria');
-  const [lastName, setLastName] = useState('Oukil');
-  const [company, setCompany] = useState('usthb.dz');
-  const [location, setLocation] = useState('Algiers, Algeria');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [company, setCompany] = useState('');
+  const [location, setLocation] = useState('');
   const [copiedDork, setCopiedDork] = useState<string | null>(null);
 
   // Phone Lookup State
-  const [phoneNumber, setPhoneNumber] = useState('+213 555 12 34 56');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneResult, setPhoneResult] = useState<any | null>(null);
 
   // Algerian Wilaya & IP GIS Reticle State
   const [selectedWilaya, setSelectedWilaya] = useState<string>('16 - Algiers (الجزائر العاصمة)');
   const [communesList, setCommunesList] = useState<any[]>([]);
   const [selectedCommune, setSelectedCommune] = useState<any | null>(null);
-  const [ipAddress, setIpAddress] = useState('105.101.42.18');
+  const [ipAddress, setIpAddress] = useState('');
 
   // Load Algerian Communes from algeria_cities.json
   useEffect(() => {
@@ -319,6 +320,21 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
             <FileText className="w-3.5 h-3.5" />
             <span>Intelligence Dossier</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('gods-eye')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'gods-eye'
+                ? 'bg-gradient-to-r from-cyan-500/40 via-blue-600/40 to-purple-600/40 text-cyan-300 border border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.5)]'
+                : 'bg-[#0a101d] text-cyan-400 hover:text-cyan-200 border border-cyan-500/30'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 animate-spin-slow text-cyan-300" />
+            <span>🛰️ Global GEOINT</span>
+            <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 text-[9px] font-extrabold border border-cyan-400/40 animate-pulse">
+              LIVE 3D
+            </span>
+          </button>
         </div>
 
         <div className="text-xs text-slate-400 font-bold flex items-center gap-2 shrink-0">
@@ -327,8 +343,15 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
         </div>
       </div>
 
-      {/* Main Grid: Center Stage (~65% width) + Right Deck (~35% width) */}
-      <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 overflow-hidden">
+      {/* Content Area */}
+      {activeTab === 'gods-eye' ? (
+        <div className="flex-1 w-full h-full rounded-2xl overflow-hidden border border-cyan-500/30 bg-[#080d18] shadow-2xl">
+          <GodsEyeCockpit initialTargetIp={ipAddress} />
+        </div>
+      ) : (
+        <>
+          {/* Main Grid: Center Stage (~65% width) + Right Deck (~35% width) */}
+          <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 overflow-hidden">
         {/* Center Stage */}
         <div className="lg:col-span-8 flex flex-col h-full rounded-2xl bg-[#060b14]/90 border border-cyan-500/20 overflow-hidden relative shadow-2xl">
           {/* 1. Sherlock 52-Platform View */}
@@ -458,7 +481,7 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                       type="text"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="Zakaria"
+                      placeholder="e.g. John"
                       className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
                     />
                   </div>
@@ -469,7 +492,7 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                       type="text"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Oukil"
+                      placeholder="e.g. Doe"
                       className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
                     />
                   </div>
@@ -480,7 +503,7 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                       type="text"
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
-                      placeholder="usthb.dz"
+                      placeholder="e.g. target-domain.com"
                       className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
                     />
                   </div>
@@ -491,7 +514,7 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                       type="text"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Algiers, Algeria"
+                      placeholder="e.g. Geneva, Switzerland"
                       className="w-full mt-1 px-3 py-1.5 text-xs bg-black/80 border border-cyan-500/25 rounded-xl text-white font-mono"
                     />
                   </div>
@@ -686,10 +709,10 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                   <div>
                     <div className="text-xs font-bold text-white flex items-center gap-2">
                       <span>INTELLIGENCE CASE DOSSIER:</span>
-                      <span className="font-mono text-purple-300">CASE-2026-DZ-8941</span>
+                      <span className="font-mono text-purple-300">CASE-2026-INTEL-8941</span>
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                      CLASSIFICATION: ACADEMIC AUDIT / FORENSIC PROSECUTION READY // NODE: DZ-USTHB
+                      CLASSIFICATION: FORENSIC INTELLIGENCE AUDIT // SECURE RECON NODE
                     </div>
                   </div>
                 </div>
@@ -698,17 +721,17 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                   <button
                     onClick={() => {
                       const caseData = {
-                        caseId: 'CASE-2026-DZ-8941',
-                        investigator: 'Zak // Lead Forensics Officer',
+                        caseId: 'CASE-2026-INTEL-8941',
+                        investigator: 'Lead Forensics Investigator',
                         target: {
-                          fullName,
+                          fullName: fullName || 'UNASSIGNED_TARGET',
                           username: query,
-                          company,
-                          location,
-                          phone: phoneNumber,
-                          carrier: phoneResult?.carrier || 'Mobilis (ATM)',
+                          company: company || 'N/A',
+                          location: location || 'N/A',
+                          phone: phoneNumber || 'N/A',
+                          carrier: phoneResult?.carrier || 'Carrier Lookup Required',
                           wilaya: selectedWilaya,
-                          ip: ipAddress,
+                          ip: ipAddress || 'N/A',
                         },
                         timestamp: new Date().toISOString(),
                         hash: 'SHA256:4f8a9e22c7104b6d8923a1078f4410e309ad9428b12f6c91a78e4d2091c6e451',
@@ -718,7 +741,7 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `DOSSIER-${fullName.replace(/\s+/g, '_') || 'TARGET'}-2026.json`;
+                      a.download = `DOSSIER-${(fullName ? fullName.replace(/\s+/g, '_') : 'TARGET')}-2026.json`;
                       a.click();
                     }}
                     className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-400/40 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -744,11 +767,11 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                     <UserCheck className="w-3 h-3 text-cyan-400" />
                     <span>PRIMARY SUBJECT ENTITY</span>
                   </div>
-                  <div className="text-sm font-bold text-white font-mono">{fullName}</div>
+                  <div className="text-sm font-bold text-white font-mono">{fullName || 'UNASSIGNED TARGET'}</div>
                   <div className="text-xs text-purple-300 font-mono mt-0.5">@{query}</div>
                   <div className="mt-2 text-[10px] text-slate-400 space-y-0.5">
-                    <div>Entity: Verified Physical Person</div>
-                    <div>Nationality: Algeria (الجمهورية الجزائرية)</div>
+                    <div>Entity: Physical Subject / Handle</div>
+                    <div>Location: {location || 'Unspecified Jurisdiction'}</div>
                   </div>
                 </div>
 
@@ -757,10 +780,10 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                     <Building className="w-3 h-3 text-cyan-400" />
                     <span>AFFILIATION & CORRESPONDENCE</span>
                   </div>
-                  <div className="text-sm font-bold text-white font-mono">{company}</div>
-                  <div className="text-xs text-cyan-300 font-mono mt-0.5">{location}</div>
+                  <div className="text-sm font-bold text-white font-mono">{company || 'No Domain Listed'}</div>
+                  <div className="text-xs text-cyan-300 font-mono mt-0.5">{location || 'Global'}</div>
                   <div className="mt-2 text-[10px] text-slate-400 space-y-0.5">
-                    <div>Domain: Educational & Research (.dz)</div>
+                    <div>Domain: {company ? domainClean : 'N/A'}</div>
                     <div>Predicted Emails: {emailPermutations.length} cataloged</div>
                   </div>
                 </div>
@@ -770,11 +793,11 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                     <MapPin className="w-3 h-3 text-cyan-400" />
                     <span>TELECOM & GIS ATTRIBUTION</span>
                   </div>
-                  <div className="text-sm font-bold text-white font-mono">{phoneNumber}</div>
-                  <div className="text-xs text-emerald-400 font-mono mt-0.5">{phoneResult?.carrier || 'Mobilis ATM (603-01)'}</div>
+                  <div className="text-sm font-bold text-white font-mono">{phoneNumber || 'No MSISDN Associated'}</div>
+                  <div className="text-xs text-emerald-400 font-mono mt-0.5">{phoneResult?.carrier || (phoneNumber ? 'Carrier Lookup Required' : 'N/A')}</div>
                   <div className="mt-2 text-[10px] text-slate-400 space-y-0.5">
-                    <div>Wilaya Node: {selectedWilaya}</div>
-                    <div>IP Gateway: {ipAddress} (AS36947)</div>
+                    <div>Wilaya / Sector: {selectedWilaya || 'Global Node'}</div>
+                    <div>IP Gateway: {ipAddress || 'Not Assigned'}</div>
                   </div>
                 </div>
               </div>
@@ -875,7 +898,7 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
             </div>
             <button
               onClick={() => {
-                alert(`Dossier exported: CASE-2026-DZ-${fullName || query || 'TARGET'}.json generated.`);
+                alert(`Dossier exported: CASE-2026-${fullName ? fullName.replace(/\s+/g, '_') : query || 'TARGET'}.json generated.`);
               }}
               className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1.5 hover:bg-purple-900/50 transition-colors cursor-pointer"
             >
@@ -888,15 +911,15 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
             <div className="p-3 rounded-xl bg-slate-900/80 border border-purple-500/30">
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span>CASE ID:</span>
-                <span className="text-purple-300 font-bold font-mono">CASE-2026-DZ-8941</span>
+                <span className="text-purple-300 font-bold font-mono">CASE-2026-INTEL-8941</span>
               </div>
               <div className="flex justify-between text-[11px] text-slate-400 mt-1">
                 <span>INVESTIGATOR:</span>
-                <span className="text-white font-bold font-mono">Zak // Lead Forensics Officer</span>
+                <span className="text-white font-bold font-mono">Lead Forensics Investigator</span>
               </div>
               <div className="flex justify-between text-[11px] text-slate-400 mt-1">
                 <span>PURPOSE:</span>
-                <span className="text-emerald-400 font-bold font-mono">Master's Thesis Defense</span>
+                <span className="text-emerald-400 font-bold font-mono">Forensic Cybersecurity Audit</span>
               </div>
             </div>
 
@@ -919,7 +942,7 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
                 <span>Executive Intelligence Summary:</span>
               </div>
               <p className="text-slate-300 text-[11px] leading-relaxed">
-                Target identity <span className="text-cyan-300 font-bold">{fullName}</span> (@{query}) demonstrates digital footprint correlated across developer, social, and communications services. Affiliation node: <span className="text-purple-300 font-bold">{company}</span> ({location}).
+                Target identity <span className="text-cyan-300 font-bold">{fullName || 'Unassigned Target'}</span> (@{query}) demonstrates digital footprint correlated across developer, social, and communications services. Affiliation node: <span className="text-purple-300 font-bold">{company || 'Global Node'}</span> ({location || 'Global Jurisdiction'}).
               </p>
             </div>
 
@@ -953,6 +976,8 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'user
           <span>ITU-T Standards Compliant</span>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

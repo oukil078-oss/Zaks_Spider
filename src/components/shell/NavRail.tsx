@@ -34,6 +34,7 @@ export const NavRail: React.FC<NavRailProps> = ({
         ];
       case 'forensics':
         return [
+          { id: 'gods-eye', label: "🛰️ Global GEOINT & Viewsheds", icon: <Globe2 className="w-4 h-4 text-cyan-400" /> },
           { id: 'username', label: 'Sherlock 52-Platform', icon: <Search className="w-4 h-4" /> },
           { id: 'name', label: 'Full Name & Google Dorks', icon: <AtSign className="w-4 h-4" /> },
           { id: 'phone', label: 'Phone Forensics (ITU-T)', icon: <PhoneCall className="w-4 h-4" /> },

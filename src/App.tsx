@@ -61,6 +61,10 @@ export const App: React.FC = () => {
         else if (e.key === '3') handleSelectHub('soc');
         else if (e.key === '4') handleSelectHub('vuln-news');
         else if (e.key.toLowerCase() === 's') setIsAiSwarmOpen((prev) => !prev);
+        else if (e.key.toLowerCase() === 'g') {
+          setActiveHub('forensics');
+          setActiveSubCategory('gods-eye');
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -75,16 +79,22 @@ export const App: React.FC = () => {
         onSelectHub={handleSelectHub}
         attackCountToday={48192}
         onOpenAiSwarm={() => handleOpenSwarm('Audit global cyber attack trajectories and advise priority defense posture.')}
-      />
-
-      {/* 2. Top Bento Row (3 Cards: APS Ticker, Surface, CISA KEV Radar) */}
-      <BentoTopRow
-        totalAttacksCount={48192}
-        onSelectCveCard={() => {
-          setActiveHub('vuln-news');
-          setActiveSubCategory('zero-days');
+        onOpenGodsEye={() => {
+          setActiveHub('forensics');
+          setActiveSubCategory('gods-eye');
         }}
       />
+
+      {/* 2. Top Bento Row (3 Cards: APS Ticker, Surface, CISA KEV Radar) - Hidden in Global GEOINT for maximum screen real estate */}
+      {!(activeHub === 'forensics' && activeSubCategory === 'gods-eye') && (
+        <BentoTopRow
+          totalAttacksCount={48192}
+          onSelectCveCard={() => {
+            setActiveHub('vuln-news');
+            setActiveSubCategory('zero-days');
+          }}
+        />
+      )}
 
       {/* 3. Main Stage Layout (NavRail on Left + Active Hub View on Right) */}
       <div className="flex-1 w-full flex items-stretch gap-3 overflow-hidden">

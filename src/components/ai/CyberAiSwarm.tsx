@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { CyberAiPersonaId, CyberAiAgentPersona, CyberAgentMessage } from '../../types';
 import { apiService } from '../../services/api';
+import CyberMarkdownRenderer from './CyberMarkdownRenderer';
 
 export interface CyberModelOption {
   id: string;
@@ -587,76 +588,14 @@ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 50 -j REJECT
     setTimeout(() => setCopiedCodeIdx(null), 2000);
   };
 
-  // Helper to parse message text into rich paragraphs and interactive codeblocks
+  // Helper to parse message text into rich tables, interactive Mermaid charts, callouts, and codeblocks
   const renderMessageContent = (rawText: string, msgId: string) => {
-    const parts = rawText.split(/(```[\s\S]*?```)/g);
-
     return (
-      <div className="space-y-3 font-mono text-xs">
-        {parts.map((part, index) => {
-          if (part.startsWith('```') && part.endsWith('```')) {
-            const firstLineBreak = part.indexOf('\n');
-            const lang = firstLineBreak !== -1 ? part.substring(3, firstLineBreak).trim() : 'bash';
-            const code = firstLineBreak !== -1 ? part.substring(firstLineBreak + 1, part.length - 3).trim() : part.slice(3, -3).trim();
-            const codeId = `${msgId}-code-${index}`;
-
-            // Check if code contains runnable command for PenTest console
-            const isCommand = ['bash', 'sh', 'shell', 'zsh', 'terminal', ''].includes(lang.toLowerCase()) && 
-              (code.includes('nmap') || code.includes('davtest') || code.includes('cadaver') || 
-               code.includes('impacket') || code.includes('curl') || code.includes('sqlmap') || 
-               code.includes('gobuster') || code.includes('hydra') || code.includes('iptables'));
-
-            return (
-              <div key={index} className="rounded-xl border border-cyan-500/30 bg-[#050913] overflow-hidden my-2.5 shadow-md">
-                <div className="px-3 py-1.5 bg-[#080f22] border-b border-cyan-500/20 flex items-center justify-between text-[10px]">
-                  <div className="flex items-center gap-1.5 text-cyan-400 font-bold uppercase tracking-wider">
-                    <Terminal className="w-3 h-3" />
-                    <span>{lang || 'COMMAND'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isCommand && onPivotToPentest && (
-                      <button
-                        onClick={() => onPivotToPentest(code.split('\n')[0].replace(/^sudo\s+/, ''))}
-                        className="px-2 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-[9px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-                        title="Send this command to the PenTest Terminal"
-                      >
-                        <Zap className="w-2.5 h-2.5 text-cyan-300 fill-cyan-300" />
-                        <span>Pivot to PenTest</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => copyCodeBlock(code, codeId)}
-                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[9px] flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      {copiedCodeIdx === codeId ? (
-                        <>
-                          <Check className="w-2.5 h-2.5 text-emerald-400" />
-                          <span className="text-emerald-400">Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-2.5 h-2.5" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                <pre className="p-3 text-[11px] leading-relaxed text-emerald-300/95 overflow-x-auto selection:bg-cyan-500/30 font-mono">
-                  {code}
-                </pre>
-              </div>
-            );
-          }
-
-          // Regular text block - highlight bold, list items, headers
-          return (
-            <div key={index} className="whitespace-pre-line text-slate-200 leading-relaxed text-xs">
-              {part}
-            </div>
-          );
-        })}
-      </div>
+      <CyberMarkdownRenderer
+        content={rawText}
+        msgId={msgId}
+        onPivotToPentest={onPivotToPentest}
+      />
     );
   };
 

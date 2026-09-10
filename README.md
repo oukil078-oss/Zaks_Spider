@@ -28,7 +28,16 @@
 - **Vault Studio:** Obsidian-compatible Markdown editor and viewer with frontmatter, tags, and `[[wikilinks]]`.
 - **Widow-AI Assistant:** Embedded cybersecurity conversational intelligence directly linked to your Second Brain and reconnaissance data.
 
-### 4. 🎨 Spider & Webs Cyber Theme
+### 4. 🛰️ Global GEOINT & Sovereign 3D Viewshed Cockpit
+- **Photorealistic 3D Earth Engine (CesiumJS):** High-resolution satellite photography (Esri World Imagery), OpenStreetMap 3D buildings, and Google Photorealistic 3D Tiles.
+- **6,950+ Live Global CCTV Cameras:** Verified public municipality streams with calculated 3D viewshed coverage frustum pyramids, azimuth yaw/pitch, and blind-spot detection.
+- **Real-Time Cockpit Ride-Along HUD:** Transparent avionics HUD with artificial horizon, pitch ladder ($\pm 20^\circ$), waterline boresight, dynamic flight path vector bird, and 40 NM TCAS radar sweep.
+- **Multi-Perspective Angles:** Instantly switch between Pilot 1st-Person Cockpit, 3rd-Person Chase Cam, and Nadir Downward Reconnaissance.
+- **Cyber-Physical IP Geolocation Gateway:** Enter any IPv4/IPv6 address to automatically geolocate coordinates, identify ISP/ASN, calculate distance to nearest physical optical sensor, and render correlation intercept vectors.
+- **Boundary & Sector Highlights:** Polygon perimeters for all 58 Algerian Wilayas and global Nominatim boundaries with automatic camera dive animations.
+- **Orbital Satellites & Subsea Fiber:** Real-time TLE orbital propagation (ISS, ALSAT-2B, ALCOMSAT-1, Sentinel, Starlink) and strategic Mediterranean subsea fiber-optic cables.
+
+### 5. 🎨 Spider & Webs Cyber Theme
 - Deep Obsidian & Dark Web Void (`#06090e`, `#0d1522`)
 - Electric Spider-Silk Cyan (`#00f0ff`) & Neon Venom Green (`#10b981`)
 - Black Widow Crimson (`#ef4444`) & Arachnid Violet (`#a855f7`)

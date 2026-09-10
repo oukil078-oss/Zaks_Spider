@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Terminal, Fingerprint, Activity, Radio, Clock, Bell, Volume2, VolumeX, Flame, Bug, Bot } from 'lucide-react';
+import { Shield, Terminal, Fingerprint, Activity, Radio, Clock, Bell, Volume2, VolumeX, Flame, Bug, Bot, Globe } from 'lucide-react';
 import { MainHubId } from '../../types';
 
 interface TopBarProps {
@@ -7,6 +7,7 @@ interface TopBarProps {
   onSelectHub: (hub: MainHubId) => void;
   attackCountToday?: number;
   onOpenAiSwarm?: () => void;
+  onOpenGodsEye?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ 
@@ -14,6 +15,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSelectHub, 
   attackCountToday = 48192,
   onOpenAiSwarm,
+  onOpenGodsEye,
 }) => {
   const [currentTime, setCurrentTime] = useState('');
   const [audioMuted, setAudioMuted] = useState(true);
@@ -121,6 +123,19 @@ export const TopBar: React.FC<TopBarProps> = ({
 
       {/* Right Capsule: AI Cyber Swarm, DEFCON 1, UTC Clock & Telemetry Indicators */}
       <div className="flex items-center gap-2.5">
+        {/* Global GEOINT Sovereign 3D Cockpit Launcher */}
+        {onOpenGodsEye && (
+          <button
+            onClick={onOpenGodsEye}
+            title="Launch Global GEOINT Sovereign 3D Cockpit"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600/30 to-blue-600/30 border border-cyan-400/60 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer"
+          >
+            <Globe className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">Global GEOINT</span>
+            <span className="px-1 py-0.2 rounded bg-cyan-500 text-black text-[9px] font-black">3D</span>
+          </button>
+        )}
+
         {/* Virtual SOC AI Swarm Launcher Button */}
         {onOpenAiSwarm && (
           <button

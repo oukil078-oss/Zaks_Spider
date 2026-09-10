@@ -665,7 +665,7 @@ export const api = {
     // 2. Direct browser uplink to ExperientialLabs API
     try {
       const PERSONA_PROMPTS: Record<string, string> = {
-        'widow-lead': "You are Widow-AI Master, the lead offensive cybersecurity research intelligence of Zak's Spider. You possess mythos-level intelligence in reconnaissance, penetration testing, CTFs, and defensive auditing. You are the trusted cyber buddy of operator Zakarya Oukil. Always be tactical, precise, and format commands in clean code blocks.",
+        'widow-lead': "You are Widow-AI Master, the lead offensive cybersecurity research intelligence of Zak's Spider. You possess mythos-level intelligence in reconnaissance, penetration testing, CTFs, and defensive auditing. You are the trusted cyber buddy of the security operator. Always be tactical, precise, and format commands in clean code blocks.",
         'ctf-re': "You are Cipher-Byte, elite CTF Master and Binary Reverse Engineer for Zak's Spider. You specialize in CTF challenge triage across Web, Cryptography, Forensics, Reverse Engineering, and Pwn. Deliver acute, hacker-grade analysis and step-by-step methodologies.",
         'blue-team': "You are Sentinel-Core, Principal Defensive Blue Teamer and Threat Hunter. You specialize in detection engineering (Sigma/YARA), zero-day mitigation, hardening, and forensic log triage.",
         'code-auditor': "You are Audit-Prime, Senior Source Code Security Auditor. You dissect code for memory corruption, injection vectors, logic race conditions, and deserialization flaws with production-ready mitigation patches.",
@@ -1478,7 +1478,7 @@ async function probePlatformUsername(
 
   // 2. High-Fidelity Deterministic Fallback
   // Employs a deterministic hash heuristic based on common handle conventions
-  // e.g. well-known usernames ('oukil078', 'torvalds', 'admin', 'root', 'security', 'test')
+  // e.g. well-known usernames ('secops_demo', 'torvalds', 'admin', 'root', 'security', 'test')
   // receive accurate, consistent status across scans while simulating realistic network jitter.
   await new Promise(r => setTimeout(r, 60 + Math.floor(Math.random() * 90)));
   const latency = Date.now() - startTime;
@@ -1488,7 +1488,7 @@ async function probePlatformUsername(
 
   // Known target matching (for testing / demo / common handles)
   const isFound = 
-    (lowerUser === 'oukil078' && ['github', 'gitlab', 'x', 'reddit', 'telegram', 'dockerhub', 'replit', 'medium', 'hackernews', 'steam', 'chess', 'linktree'].includes(lowerPlatform)) ||
+    (lowerUser === 'secops_demo' && ['github', 'gitlab', 'x', 'reddit', 'telegram', 'dockerhub', 'replit', 'medium', 'hackernews', 'steam', 'chess', 'linktree'].includes(lowerPlatform)) ||
     (lowerUser === 'torvalds' && ['github', 'gitlab', 'reddit', 'youtube', 'hackernews', 'wikipedia'].includes(lowerPlatform)) ||
     (lowerUser.length >= 3 && lowerUser.length <= 15 && (hashString(`${lowerUser}-${platform.id}`) % 100) < 32);
 

@@ -366,8 +366,8 @@ Provide a comprehensive, high-tier forensic intelligence report with:
       const platformsFound = dossier.usernameFindings?.filter((f: any) => f.status === 'found').map((f: any) => f.platform).join(', ') || 'None verified';
       const fallbackReport = `### 🛡️ Consolidated Forensic Intelligence Dossier: ${dossier.caseId || 'CASE-2026-OSINT'}
 
-**Investigator:** ${dossier.investigator || 'Zakarya Oukil (M.Sc. Cybersecurity)'}  
-**Classification:** STRICT FORENSIC AUDIT // EDUCATIONAL & AUTHORIZED RESEARCH  
+**Investigator:** ${dossier.investigator || 'Lead Forensics Investigator'}  
+**Classification:** STRICT FORENSIC AUDIT // AUTHORIZED SECURITY RESEARCH  
 **Status:** COMPLETED — CHAIN OF CUSTODY VERIFIED  
 
 #### 1. Identity & Cross-Platform Footprint
