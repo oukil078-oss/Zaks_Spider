@@ -307,7 +307,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 4. AI Consolidated Case Dossier Synthesis
     // ----------------------------------------
     if (action === 'correlate_dossier') {
-      const { dossier, model = 'gpt-6-astra' } = req.body || {};
+      const { dossier, model = 'deepseek-v4.1-flash' } = req.body || {};
       if (!dossier) {
         return res.status(400).json({ success: false, error: 'Case dossier payload required' });
       }
@@ -342,12 +342,14 @@ Provide a comprehensive, high-tier forensic intelligence report with:
               { role: 'user', content: `Synthesize the complete forensic case dossier for case ID: ${dossier.caseId || 'CASE-2026'}.` },
             ],
             temperature: 0.3,
+            max_tokens: 3500,
           }),
         });
 
         if (aiResponse.ok) {
           const aiJson = await aiResponse.json();
-          const report = aiJson.choices?.[0]?.message?.content;
+          const choiceMsg = aiJson.choices?.[0]?.message;
+          const report = choiceMsg?.content || choiceMsg?.reasoning;
           if (report) {
             return res.status(200).json({
               success: true,

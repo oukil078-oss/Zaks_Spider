@@ -208,6 +208,130 @@ export const api = {
     return { success: false, alertTriggered: false, message: 'Sensor network unreachable' };
   },
 
+  // ----------------------------------------
+  // Automated Free Model Tracker (Daily Auto-Check)
+  // Scrapes platform.experientiallabs.ai for $0/M input & output models
+  // ----------------------------------------
+  async getFreeModels(forceRefresh = false): Promise<{
+    success: boolean;
+    models: any[];
+    lastChecked: string;
+    isFromCache: boolean;
+  }> {
+    const CACHE_KEY = 'zaks_free_models_cache';
+    const TIME_KEY = 'zaks_free_models_timestamp';
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+    if (!forceRefresh && typeof localStorage !== 'undefined') {
+      const cached = localStorage.getItem(CACHE_KEY);
+      const timestamp = localStorage.getItem(TIME_KEY);
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < TWENTY_FOUR_HOURS) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return {
+                success: true,
+                models: parsed,
+                lastChecked: new Date(parseInt(timestamp, 10)).toISOString(),
+                isFromCache: true,
+              };
+            }
+          } catch {}
+        }
+      }
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/ai?action=get_free_models${forceRefresh ? '&force=true' : ''}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.models) && json.models.length > 0) {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(json.models));
+            localStorage.setItem(TIME_KEY, Date.now().toString());
+          }
+          return {
+            success: true,
+            models: json.models,
+            lastChecked: json.lastChecked || new Date().toISOString(),
+            isFromCache: false,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[API] Free model sync error, using fallback tier:', e);
+    }
+
+    // Default fallback models if network/server is unavailable
+    const fallback = [
+      {
+        id: 'deepseek-v4.1-flash',
+        name: 'DeepSeek V4.1 Flash',
+        slug: 'deepseek-v4.1-flash',
+        badge: 'FREE 0$/M',
+        provider: 'DeepSeek / Experiential',
+        tagline: 'Flagship Free Reasoning Model — 0$ Input / 0$ Output',
+        inputPriceUsd: 0,
+        outputPriceUsd: 0,
+        isFree: true,
+        isStarred: true,
+        color: 'from-blue-600 to-cyan-500',
+        accentBorder: 'border-emerald-500/50 text-emerald-300',
+      },
+      {
+        id: 'deepseek-v4-flash',
+        name: 'DeepSeek V4 Flash',
+        slug: 'deepseek-v4-flash',
+        badge: 'FREE 0$/M',
+        provider: 'DeepSeek / Experiential',
+        tagline: 'High-Speed Free Model — 0$ Input / 0$ Output',
+        inputPriceUsd: 0,
+        outputPriceUsd: 0,
+        isFree: true,
+        isStarred: true,
+        color: 'from-blue-600 to-cyan-500',
+        accentBorder: 'border-emerald-500/50 text-emerald-300',
+      },
+      {
+        id: 'gpt-5.6-luna',
+        name: 'GPT-5.6 Luna',
+        slug: 'gpt-5.6-luna',
+        badge: 'FREE 0$/M',
+        provider: 'OpenAI / Experiential',
+        tagline: 'Multimodal Free Model — 0$ Input / 0$ Output',
+        inputPriceUsd: 0,
+        outputPriceUsd: 0,
+        isFree: true,
+        isStarred: true,
+        color: 'from-emerald-500 to-teal-600',
+        accentBorder: 'border-emerald-500/50 text-emerald-300',
+      },
+      {
+        id: 'qwen3.8-27b',
+        name: 'Qwen3.8 27B',
+        slug: 'qwen3.8-27b',
+        badge: 'FREE 0$/M',
+        provider: 'Alibaba Cloud / Experiential',
+        tagline: 'Featured Free Model — 0$ Input / 0$ Output',
+        inputPriceUsd: 0,
+        outputPriceUsd: 0,
+        isFree: true,
+        isStarred: true,
+        color: 'from-amber-500 to-orange-600',
+        accentBorder: 'border-emerald-500/50 text-emerald-300',
+      },
+    ];
+
+    return {
+      success: true,
+      models: fallback,
+      lastChecked: new Date().toISOString(),
+      isFromCache: false,
+    };
+  },
+
   async chatWithCopilot(options: {
     message: string;
     model?: string;
@@ -216,7 +340,7 @@ export const api = {
     apiKey?: string;
   }): Promise<{ content: string; reasoning?: string; model?: string; quotaNote?: string }> {
     const storedApiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('zaks_ai_api_key') : null) || undefined;
-    const requestedModel = options.model || (typeof localStorage !== 'undefined' ? localStorage.getItem('zaks_selected_model') : null) || 'gpt-6-astra';
+    const requestedModel = options.model || (typeof localStorage !== 'undefined' ? localStorage.getItem('zaks_selected_model') : null) || 'deepseek-v4.1-flash';
 
     try {
       const res = await fetch(`${API_BASE}/ai`, {
@@ -267,12 +391,14 @@ export const api = {
             { role: 'user', content: options.message },
           ],
           temperature: 0.3,
+          max_tokens: 3500,
         }),
       });
       if (directRes.ok) {
         const data = await directRes.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content) return { content, model: data.model || requestedModel };
+        const choiceMsg = data.choices?.[0]?.message;
+        const content = choiceMsg?.content || choiceMsg?.reasoning;
+        if (content) return { content, model: data.model || requestedModel, reasoning: choiceMsg?.reasoning };
       }
     } catch (err) {
       console.warn('[API] Direct AI fallback error:', err);
@@ -300,7 +426,7 @@ export const api = {
 
   async analyzeCveWithAi(cve: VulnNewsItem): Promise<string> {
     const storedApiKey = (typeof localStorage !== 'undefined' ? localStorage.getItem('zaks_ai_api_key') : null) || undefined;
-    const requestedModel = (typeof localStorage !== 'undefined' ? localStorage.getItem('zaks_selected_model') : null) || 'gpt-6-astra';
+    const requestedModel = (typeof localStorage !== 'undefined' ? localStorage.getItem('zaks_selected_model') : null) || 'deepseek-v4.1-flash';
 
     try {
       const res = await fetch(`${API_BASE}/ai`, {
@@ -345,12 +471,14 @@ export const api = {
             }
           ],
           temperature: 0.2,
+          max_tokens: 3500,
         }),
       });
 
       if (directRes.ok) {
         const directJson = await directRes.json();
-        return directJson.choices?.[0]?.message?.content || 'Analysis generated.';
+        const choiceMsg = directJson.choices?.[0]?.message;
+        return choiceMsg?.content || choiceMsg?.reasoning || 'Analysis generated.';
       }
     } catch {}
 

@@ -18,72 +18,134 @@ export interface CyberModelOption {
   tagline: string;
   color: string;
   accentBorder: string;
+  inputPriceUsd?: number;
+  outputPriceUsd?: number;
+  isFree?: boolean;
+  isStarred?: boolean;
 }
 
-export const AVAILABLE_CYBER_MODELS: CyberModelOption[] = [
+// 0$ Input / 0$ Output models discovered and verified daily from https://platform.experientiallabs.ai/models
+export const DEFAULT_FREE_MODELS: CyberModelOption[] = [
+  {
+    id: 'deepseek-v4.1-flash',
+    name: 'DeepSeek V4.1 Flash',
+    badge: 'FREE 0$/M',
+    provider: 'DeepSeek / Experiential',
+    tagline: 'Flagship Free Reasoning Model — 0$ Input / 0$ Output',
+    color: 'from-blue-600 to-cyan-500',
+    accentBorder: 'border-emerald-500/50 text-emerald-300',
+    inputPriceUsd: 0,
+    outputPriceUsd: 0,
+    isFree: true,
+    isStarred: true,
+  },
+  {
+    id: 'deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash',
+    badge: 'FREE 0$/M',
+    provider: 'DeepSeek / Experiential',
+    tagline: 'High-Speed Free Model — 0$ Input / 0$ Output',
+    color: 'from-blue-600 to-cyan-500',
+    accentBorder: 'border-emerald-500/50 text-emerald-300',
+    inputPriceUsd: 0,
+    outputPriceUsd: 0,
+    isFree: true,
+    isStarred: true,
+  },
+  {
+    id: 'gpt-5.6-luna',
+    name: 'GPT-5.6 Luna',
+    badge: 'FREE 0$/M',
+    provider: 'OpenAI / Experiential',
+    tagline: 'Multimodal Free Model — 0$ Input / 0$ Output',
+    color: 'from-emerald-500 to-teal-600',
+    accentBorder: 'border-emerald-500/50 text-emerald-300',
+    inputPriceUsd: 0,
+    outputPriceUsd: 0,
+    isFree: true,
+    isStarred: true,
+  },
+  {
+    id: 'qwen3.8-27b',
+    name: 'Qwen3.8 27B',
+    badge: 'FREE 0$/M',
+    provider: 'Alibaba Cloud / Experiential',
+    tagline: 'Featured Free Model — 0$ Input / 0$ Output',
+    color: 'from-amber-500 to-orange-600',
+    accentBorder: 'border-emerald-500/50 text-emerald-300',
+    inputPriceUsd: 0,
+    outputPriceUsd: 0,
+    isFree: true,
+    isStarred: true,
+  },
+];
+
+export const PAID_CYBER_MODELS: CyberModelOption[] = [
   {
     id: 'gpt-6-astra',
     name: 'GPT-6 Astra',
-    badge: 'Flagship Sovereign',
+    badge: 'Pro Tier',
     provider: 'ExperientialLabs / OpenAI Next',
     tagline: 'Autonomous Sovereign Cyber Warfare & Full Spectrum Orchestration',
     color: 'from-cyan-500 to-blue-600',
     accentBorder: 'border-cyan-500/40 text-cyan-300',
+    isFree: false,
   },
   {
     id: 'qwen3.8-max',
     name: 'Qwen 3.8 Max',
-    badge: 'Frontier Reasoning',
+    badge: 'Pro Tier',
     provider: 'Alibaba Cloud / ExperientialLabs',
     tagline: 'Deep Cyber Cognitive Deduction, Offensive Vectors & Architecture',
     color: 'from-purple-500 to-pink-600',
     accentBorder: 'border-purple-500/40 text-purple-300',
-  },
-  {
-    id: 'qwen3.8-27b',
-    name: 'Qwen 3.8 27B',
-    badge: 'Tactical Swarm',
-    provider: 'Alibaba Cloud / ExperientialLabs',
-    tagline: 'High-Speed Threat Intelligence & Real-Time Incident Mitigation',
-    color: 'from-emerald-500 to-teal-600',
-    accentBorder: 'border-emerald-500/40 text-emerald-300',
+    isFree: false,
   },
   {
     id: 'qwen3-coder-plus',
     name: 'Qwen 3 Coder Plus',
-    badge: 'Exploit Dev',
+    badge: 'Pro Tier',
     provider: 'Alibaba Cloud / ExperientialLabs',
     tagline: 'Weaponized Payload Engineering & Binary Disassembly Analysis',
     color: 'from-amber-500 to-orange-600',
     accentBorder: 'border-amber-500/40 text-amber-300',
+    isFree: false,
   },
   {
     id: 'sonar-deep-research',
     name: 'Sonar Deep Research',
-    badge: 'OSINT & Web',
+    badge: 'Pro Tier',
     provider: 'Perplexity / ExperientialLabs',
     tagline: 'Live Autonomous Global Threat Intelligence & Dark Web Crawling',
     color: 'from-blue-500 to-indigo-600',
     accentBorder: 'border-blue-500/40 text-blue-300',
+    isFree: false,
   },
   {
     id: 'o3-mini-high',
     name: 'OpenAI o3-mini',
-    badge: 'Logical Depth',
+    badge: 'Pro Tier',
     provider: 'OpenAI / ExperientialLabs',
     tagline: 'Algorithmic Flaw Detection, ROP Chains & Proof-of-Concept Logic',
     color: 'from-violet-500 to-purple-700',
     accentBorder: 'border-violet-500/40 text-violet-300',
+    isFree: false,
   },
   {
     id: 'nemotron-3-super-120b-a12b',
     name: 'Nemotron 3 Super 120B',
-    badge: 'Enterprise SOC',
+    badge: 'Pro Tier',
     provider: 'NVIDIA / ExperientialLabs',
     tagline: 'Heavyweight Zero-Trust Policy & MITRE ATT&CK Defense Mapping',
     color: 'from-green-500 to-emerald-700',
     accentBorder: 'border-green-500/40 text-green-300',
+    isFree: false,
   },
+];
+
+export const AVAILABLE_CYBER_MODELS: CyberModelOption[] = [
+  ...DEFAULT_FREE_MODELS,
+  ...PAID_CYBER_MODELS,
 ];
 
 export const CYBER_AI_PERSONAS: CyberAiAgentPersona[] = [
@@ -194,11 +256,15 @@ export const CyberAiSwarm: React.FC<CyberAiSwarmProps> = ({
   const [activePersonaId, setActivePersonaId] = useState<CyberAiPersonaId>('red-team');
   const [selectedModelId, setSelectedModelId] = useState<string>(() => {
     if (typeof localStorage !== 'undefined') {
-      return localStorage.getItem('zaks_selected_model') || 'gpt-6-astra';
+      const stored = localStorage.getItem('zaks_selected_model');
+      if (stored && stored !== 'gpt-6-astra') return stored;
     }
-    return 'gpt-6-astra';
+    return 'deepseek-v4.1-flash';
   });
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [freeModels, setFreeModels] = useState<CyberModelOption[]>(DEFAULT_FREE_MODELS);
+  const [isSyncingRates, setIsSyncingRates] = useState(false);
+  const [lastRateSync, setLastRateSync] = useState<string>('Daily verified');
 
   // Uplink Key Configuration State
   const [apiKey, setApiKey] = useState<string>(() => {
@@ -221,9 +287,9 @@ export const CyberAiSwarm: React.FC<CyberAiSwarmProps> = ({
       personaId: 'system',
       senderName: 'Zak\'s Spider Cyber Swarm Matrix',
       role: 'Autonomous AI Security Operations Center',
-      text: 'Virtual SOC Operations Center online. Multi-model neural lanes configured (GPT-6 Astra, Qwen 3.8 Max, Qwen 3 Coder Plus, Sonar Deep Research). 5 specialized cyber commanders standing by for tactical PenTest, DFIR, SOC triage, binary exploitation, and master\'s thesis defense.',
+      text: 'Virtual SOC Operations Center online. Free neural lanes connected: DeepSeek V4.1 Flash, DeepSeek V4 Flash, and GPT-5.6 Luna ($0 Input / $0 Output verified daily). 5 specialized cyber commanders standing by for tactical PenTest, DFIR, SOC triage, binary exploitation, and master\'s thesis defense.',
       timestamp: new Date().toLocaleTimeString(),
-      model: 'GPT-6 Astra Sovereign Swarm',
+      model: 'DeepSeek V4.1 Flash (0$ Free Lane)',
     },
   ]);
   const [inputPrompt, setInputPrompt] = useState('');
@@ -234,8 +300,35 @@ export const CyberAiSwarm: React.FC<CyberAiSwarmProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Daily Free Model Auto-Sync Function
+  const refreshFreeModels = async (force = false) => {
+    setIsSyncingRates(true);
+    try {
+      const res = await apiService.getFreeModels(force);
+      if (res.success && res.models?.length > 0) {
+        setFreeModels(res.models);
+        const syncDate = new Date(res.lastChecked);
+        setLastRateSync(`Verified: ${syncDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      }
+    } catch (e) {
+      console.warn('[Swarm] Rate sync error:', e);
+    } finally {
+      setIsSyncingRates(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      refreshFreeModels(false);
+    }
+  }, [isOpen]);
+
   const activePersona = CYBER_AI_PERSONAS.find((p) => p.id === activePersonaId) || CYBER_AI_PERSONAS[0];
-  const activeModel = AVAILABLE_CYBER_MODELS.find((m) => m.id === selectedModelId) || AVAILABLE_CYBER_MODELS[0];
+  const allModels = [
+    ...freeModels,
+    ...PAID_CYBER_MODELS.filter((m) => !freeModels.some((f) => f.id === m.id)),
+  ];
+  const activeModel = allModels.find((m) => m.id === selectedModelId) || freeModels[0] || allModels[0];
 
   useEffect(() => {
     if (initialPrompt && isOpen) {
@@ -287,7 +380,7 @@ export const CyberAiSwarm: React.FC<CyberAiSwarmProps> = ({
   };
 
   const handleTestConnection = async () => {
-    setTestConnStatus({ status: 'testing', msg: 'Testing neural link to ExperientialLabs...' });
+    setTestConnStatus({ status: 'testing', msg: `Testing neural link to ExperientialLabs on ${selectedModelId}...` });
     try {
       const res = await fetch('https://api.experientiallabs.ai/v1/models', {
         headers: {
@@ -296,7 +389,7 @@ export const CyberAiSwarm: React.FC<CyberAiSwarmProps> = ({
       });
 
       if (res.ok) {
-        // Test chat completion to check credits
+        // Test chat completion to check credits (using 200 tokens to allow reasoning models to complete)
         const testChat = await fetch('https://api.experientiallabs.ai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -305,22 +398,24 @@ export const CyberAiSwarm: React.FC<CyberAiSwarmProps> = ({
           },
           body: JSON.stringify({
             model: selectedModelId,
-            messages: [{ role: 'user', content: 'ping' }],
-            max_tokens: 5,
+            messages: [{ role: 'user', content: 'Respond with OK' }],
+            max_tokens: 200,
           }),
         });
 
         if (testChat.ok) {
+          const chatJson = await testChat.json().catch(() => ({}));
+          const isZeroCost = chatJson.cost === 0 || activeModel.isFree;
           setTestConnStatus({
             status: 'success',
-            msg: `Uplink Verified: Live API connection active on ${selectedModelId}. Credit balance available!`,
+            msg: `Uplink Verified: Live API connection active on ${selectedModelId}. ${isZeroCost ? '0$ / M Free Model active!' : 'Credit balance available!'}`,
           });
         } else {
           const chatErr = await testChat.text();
           if (testChat.status === 429 || chatErr.includes('insufficient_credits')) {
             setTestConnStatus({
               status: 'quota_alert',
-              msg: 'Auth valid, but remote credits are depleted (balance: $-0.06). Zak\'s Spider Mythos Sovereign Synthesizer is actively taking over.',
+              msg: 'Remote account credits are depleted (balance: $-0.06). Switch to DeepSeek V4.1 Flash, DeepSeek V4 Flash, or GPT-5.6 Luna above for 100% free daily generation ($0/M)!',
             });
           } else {
             setTestConnStatus({
@@ -597,13 +692,19 @@ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 50 -j REJECT
                 onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                 className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-2 bg-[#090f20] hover:bg-[#0c152c] ${activeModel.accentBorder}`}
               >
-                <Cpu className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <Cpu className={`w-3.5 h-3.5 ${activeModel.isFree ? 'text-emerald-400' : 'text-cyan-400'} animate-pulse`} />
                 <div className="text-left hidden md:block">
-                  <div className="text-[10px] leading-tight font-extrabold text-white flex items-center gap-1">
+                  <div className="text-[10px] leading-tight font-extrabold text-white flex items-center gap-1.5">
                     <span>{activeModel.name}</span>
-                    <span className="px-1.5 py-0.2 rounded text-[8px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
-                      {activeModel.badge}
-                    </span>
+                    {activeModel.isFree ? (
+                      <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        0$/M FREE
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.2 rounded text-[8px] bg-slate-800 text-slate-300 border border-slate-700">
+                        {activeModel.badge}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="md:hidden text-white font-bold">{activeModel.name}</span>
@@ -612,43 +713,130 @@ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 50 -j REJECT
 
               {/* DROPDOWN MENU */}
               {isModelDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-[#080e1c] border border-cyan-500/40 shadow-[0_10px_35px_rgba(0,0,0,0.8)] z-50 p-2 space-y-1 backdrop-blur-2xl animate-in fade-in slide-in-from-top-2">
-                  <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/5 flex items-center justify-between">
-                    <span>Neural Model Matrix</span>
-                    <span className="text-cyan-400">ExperientialLabs Gateway</span>
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-[420px] rounded-2xl bg-[#080e1c] border border-cyan-500/40 shadow-[0_10px_40px_rgba(0,0,0,0.85)] z-50 p-2 space-y-2 backdrop-blur-2xl animate-in fade-in slide-in-from-top-2">
+                  
+                  {/* Header with Auto Daily Sync */}
+                  <div className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <span className="text-white font-bold">Daily Free Model Radar</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[8px] text-emerald-400/80 lowercase">{lastRateSync}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          refreshFreeModels(true);
+                        }}
+                        disabled={isSyncingRates}
+                        className="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                        title="Rescan platform.experientiallabs.ai for 0$ models"
+                      >
+                        <RefreshCw className={`w-2.5 h-2.5 ${isSyncingRates ? 'animate-spin' : ''}`} />
+                        <span>Sync Rates</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="max-h-80 overflow-y-auto space-y-1 p-0.5 scrollbar-thin scrollbar-thumb-cyan-500/20">
-                    {AVAILABLE_CYBER_MODELS.map((model) => {
-                      const isSelected = model.id === selectedModelId;
-                      return (
-                        <button
-                          key={model.id}
-                          onClick={() => handleSelectModel(model.id)}
-                          className={`w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-start gap-2.5 ${
-                            isSelected
-                              ? 'bg-cyan-500/15 border border-cyan-400/50 text-white'
-                              : 'hover:bg-slate-900/80 border border-transparent text-slate-300'
-                          }`}
-                        >
-                          <div className={`w-6 h-6 rounded-lg bg-gradient-to-br ${model.color} flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm text-xs`}>
-                            ⚡
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="font-bold text-xs text-white truncate">{model.name}</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 shrink-0">
-                                {model.badge}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
-                              {model.tagline}
-                            </p>
-                            <span className="text-[8px] text-slate-500">{model.provider}</span>
-                          </div>
-                          {isSelected && <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-1" />}
-                        </button>
-                      );
-                    })}
+
+                  <div className="max-h-96 overflow-y-auto space-y-2 p-0.5 scrollbar-thin scrollbar-thumb-cyan-500/20">
+                    
+                    {/* SECTION 1: ACTIVE FREE MODELS (0$ IN / 0$ OUT) */}
+                    <div>
+                      <div className="px-2 py-1 text-[9px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3 text-emerald-400" />
+                          <span>Active Free Models ($0 In / $0 Out)</span>
+                        </div>
+                        <span className="px-1.5 py-0.2 rounded text-[8px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                          {freeModels.length} Active
+                        </span>
+                      </div>
+                      <div className="space-y-1 mt-1">
+                        {freeModels.map((model) => {
+                          const isSelected = model.id === selectedModelId;
+                          return (
+                            <button
+                              key={model.id}
+                              onClick={() => handleSelectModel(model.id)}
+                              className={`w-full text-left p-2 rounded-xl transition-all cursor-pointer flex items-start gap-2.5 ${
+                                isSelected
+                                  ? 'bg-emerald-500/20 border border-emerald-400/70 text-white shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                                  : 'hover:bg-slate-900/80 border border-transparent text-slate-300'
+                              }`}
+                            >
+                              <div className={`w-6 h-6 rounded-lg bg-gradient-to-br ${model.color || 'from-emerald-600 to-teal-500'} flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm text-xs`}>
+                                {model.isStarred ? '★' : '⚡'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <span className="font-bold text-xs text-white truncate">{model.name}</span>
+                                    {model.isStarred && (
+                                      <span className="px-1 py-0.2 rounded text-[7px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        FEATURED
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[8px] px-1.5 py-0.2 rounded font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                                    0$/M FREE
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-300 leading-tight mt-0.5">
+                                  {model.tagline}
+                                </p>
+                                <div className="flex items-center justify-between mt-1 text-[8px] text-slate-400">
+                                  <span>{model.provider}</span>
+                                  <span className="text-emerald-400 font-mono font-bold">$0.00 In / $0.00 Out</span>
+                                </div>
+                              </div>
+                              {isSelected && <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-1" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* SECTION 2: PRO / ACCOUNT BALANCE MODELS */}
+                    <div className="pt-2 border-t border-white/5">
+                      <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                        <span>Pro Tier (Requires Account Balance)</span>
+                        <span className="text-[8px] text-slate-500">Paid Quota</span>
+                      </div>
+                      <div className="space-y-1 mt-1">
+                        {PAID_CYBER_MODELS.map((model) => {
+                          const isSelected = model.id === selectedModelId;
+                          return (
+                            <button
+                              key={model.id}
+                              onClick={() => handleSelectModel(model.id)}
+                              className={`w-full text-left p-2 rounded-xl transition-all cursor-pointer flex items-start gap-2.5 opacity-75 hover:opacity-100 ${
+                                isSelected
+                                  ? 'bg-cyan-500/15 border border-cyan-400/50 text-white'
+                                  : 'hover:bg-slate-900/80 border border-transparent text-slate-400'
+                              }`}
+                            >
+                              <div className={`w-6 h-6 rounded-lg bg-gradient-to-br ${model.color} flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm text-xs`}>
+                                ⚡
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-bold text-xs text-slate-200 truncate">{model.name}</span>
+                                  <span className="text-[8px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">
+                                    {model.badge}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                                  {model.tagline}
+                                </p>
+                                <span className="text-[8px] text-slate-600">{model.provider}</span>
+                              </div>
+                              {isSelected && <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-1" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               )}

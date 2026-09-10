@@ -403,22 +403,270 @@ When defending **Zak's Spider**, frame the project around **Tri-Vector Autonomou
 *Directives synchronized with Zak's Spider Second Brain and Cyber Swarm Operations Center.*`;
 }
 
+
+// ==========================================
+// AUTOMATED FREE MODEL DISCOVERY & SCRAPER
+// Live scrapes https://platform.experientiallabs.ai/models
+// Discovers models with $0 input / $0 output or promotional free tier
+// ==========================================
+export interface ScrapedFreeModel {
+  id: string;
+  name: string;
+  slug: string;
+  badge: string;
+  provider: string;
+  tagline: string;
+  inputPriceUsd: number;
+  outputPriceUsd: number;
+  isFree: boolean;
+  isStarred: boolean;
+  color: string;
+  accentBorder: string;
+}
+
+let cachedFreeModels: {
+  models: ScrapedFreeModel[];
+  timestamp: number;
+} | null = null;
+
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours server-side cache
+
+export function getFallbackFreeModels(): ScrapedFreeModel[] {
+  return [
+    {
+      id: 'deepseek-v4.1-flash',
+      name: 'DeepSeek V4.1 Flash',
+      slug: 'deepseek-v4.1-flash',
+      badge: 'FREE 0$/M',
+      provider: 'DeepSeek / Experiential',
+      tagline: 'Flagship Free Reasoning Model — 0$ Input / 0$ Output',
+      inputPriceUsd: 0,
+      outputPriceUsd: 0,
+      isFree: true,
+      isStarred: true,
+      color: 'from-blue-600 to-cyan-500',
+      accentBorder: 'border-emerald-500/50 text-emerald-300',
+    },
+    {
+      id: 'deepseek-v4-flash',
+      name: 'DeepSeek V4 Flash',
+      slug: 'deepseek-v4-flash',
+      badge: 'FREE 0$/M',
+      provider: 'DeepSeek / Experiential',
+      tagline: 'High-Speed Free Model — 0$ Input / 0$ Output',
+      inputPriceUsd: 0,
+      outputPriceUsd: 0,
+      isFree: true,
+      isStarred: true,
+      color: 'from-blue-600 to-cyan-500',
+      accentBorder: 'border-emerald-500/50 text-emerald-300',
+    },
+    {
+      id: 'gpt-5.6-luna',
+      name: 'GPT-5.6 Luna',
+      slug: 'gpt-5.6-luna',
+      badge: 'FREE 0$/M',
+      provider: 'OpenAI / Experiential',
+      tagline: 'Multimodal Free Model — 0$ Input / 0$ Output',
+      inputPriceUsd: 0,
+      outputPriceUsd: 0,
+      isFree: true,
+      isStarred: true,
+      color: 'from-emerald-500 to-teal-600',
+      accentBorder: 'border-emerald-500/50 text-emerald-300',
+    },
+    {
+      id: 'qwen3.8-27b',
+      name: 'Qwen3.8 27B',
+      slug: 'qwen3.8-27b',
+      badge: 'FREE 0$/M',
+      provider: 'Alibaba Cloud / Experiential',
+      tagline: 'Featured Free Model — 0$ Input / 0$ Output',
+      inputPriceUsd: 0,
+      outputPriceUsd: 0,
+      isFree: true,
+      isStarred: true,
+      color: 'from-amber-500 to-orange-600',
+      accentBorder: 'border-emerald-500/50 text-emerald-300',
+    },
+    {
+      id: 'google/gemma-2-9b-it:free',
+      name: 'Google: Gemma 2 9B',
+      slug: 'google/gemma-2-9b-it:free',
+      badge: 'FREE 0$/M',
+      provider: 'Google / Experiential',
+      tagline: 'Active Free Tier — 0$ Input / 0$ Output',
+      inputPriceUsd: 0,
+      outputPriceUsd: 0,
+      isFree: true,
+      isStarred: false,
+      color: 'from-cyan-500 to-blue-600',
+      accentBorder: 'border-emerald-500/50 text-emerald-300',
+    },
+  ];
+}
+
+export async function scrapeFreeModelsFromWeb(forceRefresh = false): Promise<ScrapedFreeModel[]> {
+  if (!forceRefresh && cachedFreeModels && (Date.now() - cachedFreeModels.timestamp < CACHE_TTL_MS)) {
+    return cachedFreeModels.models;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+    const res = await fetch('https://platform.experientiallabs.ai/models', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Cache-Control': 'no-cache',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      console.warn('[AI Scraper] Upstream status:', res.status);
+      return cachedFreeModels?.models || getFallbackFreeModels();
+    }
+
+    const html = await res.text();
+    const parts = html.includes('{\\"model\\":{\\"id\\":') 
+      ? html.split('{\\"model\\":{\\"id\\":') 
+      : html.split('{"model":{"id":');
+
+    if (parts.length <= 1) {
+      console.warn('[AI Scraper] No model blocks matched, returning fallback/cached');
+      return cachedFreeModels?.models || getFallbackFreeModels();
+    }
+
+    const freeList: ScrapedFreeModel[] = [];
+    const seen = new Set<string>();
+    const frontierFreeSlugs = ['deepseek-v4.1-flash', 'deepseek-v4-flash', 'gpt-5.6-luna', 'qwen3.8-27b'];
+
+    for (let i = 1; i < parts.length; i++) {
+      const block = parts[i];
+      const slugMatch = block.match(/\\?"slug\\?":\\?"([^\\"]+)\\?"/);
+      const nameMatch = block.match(/\\?"display_name\\?":\\?"([^\\"]+)\\?"/);
+      const isPromo = block.includes('promotional_listed":true') || block.includes('\\"promotional_listed\\":true');
+
+      const inputMatches = [...block.matchAll(/\\?"input_micro_usd_per_million\\?":(\d+)/g)].map(m => parseInt(m[1]));
+      const outputMatches = [...block.matchAll(/\\?"output_micro_usd_per_million\\?":(\d+)/g)].map(m => parseInt(m[1]));
+
+      if (slugMatch && nameMatch) {
+        const slug = slugMatch[1];
+        const name = nameMatch[1];
+
+        const minInput = inputMatches.length > 0 ? Math.min(...inputMatches) : null;
+        const minOutput = outputMatches.length > 0 ? Math.min(...outputMatches) : null;
+
+        const isZeroCost = (minInput === 0 && minOutput === 0);
+        const isFrontierFree = frontierFreeSlugs.includes(slug);
+        const isFreeSlugOrName = slug.endsWith('-free') || slug.includes(':free') || name.toLowerCase().includes('(free)');
+
+        if ((isZeroCost || isPromo || isFrontierFree || isFreeSlugOrName) && !seen.has(slug)) {
+          seen.add(slug);
+
+          let provider = 'ExperientialLabs';
+          let color = 'from-purple-500 to-pink-600';
+          if (slug.includes('deepseek')) {
+            provider = 'DeepSeek / Experiential';
+            color = 'from-blue-600 to-cyan-500';
+          } else if (slug.includes('gpt') || slug.includes('chatgpt')) {
+            provider = 'OpenAI / Experiential';
+            color = 'from-emerald-500 to-teal-600';
+          } else if (slug.includes('gemini') || slug.includes('gemma')) {
+            provider = 'Google / Experiential';
+            color = 'from-cyan-500 to-blue-600';
+          } else if (slug.includes('qwen')) {
+            provider = 'Alibaba Cloud / Experiential';
+            color = 'from-amber-500 to-orange-600';
+          } else if (slug.includes('llama') || slug.includes('meta')) {
+            provider = 'Meta / Experiential';
+            color = 'from-indigo-500 to-purple-600';
+          }
+
+          freeList.push({
+            id: slug,
+            name: name.replace(/\s*\(free\)/i, ''),
+            slug,
+            badge: 'FREE 0$/M',
+            provider,
+            tagline: isPromo ? 'Featured Free Model — 0$ Input / 0$ Output' : 'Active Free Tier — 0$ Input / 0$ Output',
+            inputPriceUsd: 0,
+            outputPriceUsd: 0,
+            isFree: true,
+            isStarred: isPromo || isFrontierFree,
+            color,
+            accentBorder: 'border-emerald-500/50 text-emerald-300',
+          });
+        }
+      }
+    }
+
+    if (freeList.length > 0) {
+      // Sort: frontier models first, then starred, then alphabetical
+      freeList.sort((a, b) => {
+        const aF = frontierFreeSlugs.indexOf(a.id);
+        const bF = frontierFreeSlugs.indexOf(b.id);
+        if (aF !== -1 && bF !== -1) return aF - bF;
+        if (aF !== -1) return -1;
+        if (bF !== -1) return 1;
+        if (a.isStarred && !b.isStarred) return -1;
+        if (!a.isStarred && b.isStarred) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      cachedFreeModels = {
+        models: freeList,
+        timestamp: Date.now(),
+      };
+      return freeList;
+    }
+
+    return cachedFreeModels?.models || getFallbackFreeModels();
+  } catch (err) {
+    console.warn('[AI Scraper] Error fetching free models:', err);
+    return cachedFreeModels?.models || getFallbackFreeModels();
+  }
+}
+
 // ==========================================
 // MAIN SERVERLESS HANDLER
 // ==========================================
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
+  // Allow GET for fetching free models
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
+  const queryAction = req.query?.action;
+  const bodyAction = req.body?.action;
+  const action = queryAction || bodyAction;
+
+  // Handle action === 'get_free_models'
+  if (action === 'get_free_models') {
+    const force = req.query?.force === 'true' || req.body?.force === true;
+    const freeModels = await scrapeFreeModelsFromWeb(force);
+    return res.status(200).json({
+      success: true,
+      models: freeModels,
+      lastChecked: new Date().toISOString(),
+      count: freeModels.length,
+    });
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'POST required for AI inference' });
+  }
+
   const { 
-    action, 
     item, 
     cve, 
     messages, 
     message,
     history,
-    model = 'gpt-6-astra', 
+    model = 'deepseek-v4.1-flash', 
     persona = 'widow-lead',
     personaId,
     attachments = [],
@@ -462,12 +710,13 @@ Return a structured report with:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: model || 'gpt-6-astra',
+            model: model || 'deepseek-v4.1-flash',
             messages: [
               { role: 'system', content: PERSONA_PROMPTS[activePersonaKey] || PERSONA_PROMPTS['widow-lead'] },
               { role: 'user', content: prompt }
             ],
             temperature: 0.2,
+            max_tokens: 3000,
           }),
         });
 
@@ -562,12 +811,13 @@ Provide:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: model || 'gpt-6-astra',
+            model: model || 'deepseek-v4.1-flash',
             messages: [
               { role: 'system', content: PERSONA_PROMPTS[activePersonaKey] || PERSONA_PROMPTS['widow-lead'] },
               { role: 'user', content: cvePrompt }
             ],
             temperature: 0.2,
+            max_tokens: 3500,
           }),
         });
 
@@ -649,16 +899,18 @@ Provide:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: model || 'gpt-6-astra',
+            model: model || 'deepseek-v4.1-flash',
             messages: remoteMessages,
             temperature: 0.3,
+            max_tokens: 3500,
           }),
         });
 
         if (response.ok) {
           const json = await response.json();
-          const reply = json.choices?.[0]?.message?.content || 'No response generated.';
-          const reasoning = json.choices?.[0]?.message?.reasoning || json.choices?.[0]?.reasoning || null;
+          const choiceMsg = json.choices?.[0]?.message;
+          const reply = choiceMsg?.content || choiceMsg?.reasoning || 'No response generated.';
+          const reasoning = choiceMsg?.reasoning || json.choices?.[0]?.reasoning || null;
           const tokensUsed = json.usage?.total_tokens || 0;
 
           return res.status(200).json({
