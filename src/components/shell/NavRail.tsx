@@ -2,7 +2,8 @@ import React from 'react';
 import { 
   Terminal, Globe2, ShieldAlert, Bug, Crosshair, 
   Share2, Wifi, Database, Cpu, Radio, UserCheck, 
-  MapPin, PhoneCall, FileText, Search, AtSign, Key
+  MapPin, PhoneCall, FileText, Search, AtSign, Key,
+  Flame, Layers, ShieldCheck, Activity
 } from 'lucide-react';
 import { MainHubId } from '../../types';
 
@@ -39,13 +40,21 @@ export const NavRail: React.FC<NavRailProps> = ({
           { id: 'gis', label: 'GIS Reticle & 69 Wilayas', icon: <MapPin className="w-4 h-4" /> },
           { id: 'dossier', label: 'Intelligence Dossier', icon: <FileText className="w-4 h-4" /> },
         ];
+      case 'vuln-news':
+        return [
+          { id: 'all', label: 'All Zero-Days & Classics', icon: <Bug className="w-4 h-4" /> },
+          { id: 'zero-days', label: '2024–2026 Active Zero-Days', icon: <Flame className="w-4 h-4" /> },
+          { id: 'ransomware', label: 'Ransomware Exploited Only', icon: <ShieldAlert className="w-4 h-4" /> },
+          { id: 'classics', label: 'Historic Hall of Fame (1999–2019)', icon: <Layers className="w-4 h-4" /> },
+          { id: 'kev', label: 'Official CISA KEV Catalog', icon: <ShieldCheck className="w-4 h-4" /> },
+        ];
       case 'soc':
       default:
         return [
-          { id: 'globe', label: '3D Living Globe (Dot Density)', icon: <Globe2 className="w-4 h-4" /> },
+          { id: 'globe', label: '3D Living Globe (177+ Nations)', icon: <Globe2 className="w-4 h-4" /> },
           { id: 'stream', label: 'Worldwide Attacks Stream', icon: <ShieldAlert className="w-4 h-4" /> },
-          { id: 'countries', label: 'Country Threat Hotspots', icon: <Radio className="w-4 h-4" /> },
-          { id: 'cve', label: 'CISA KEV Zero-Days', icon: <Bug className="w-4 h-4" /> },
+          { id: 'countries', label: '177+ Country Threat Mesh', icon: <Radio className="w-4 h-4" /> },
+          { id: 'ids', label: 'Active IDS Anomaly Detector', icon: <Activity className="w-4 h-4" /> },
         ];
     }
   };

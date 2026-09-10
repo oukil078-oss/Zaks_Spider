@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Terminal, Fingerprint, Activity, Radio, Clock, Bell, Volume2, VolumeX, Flame } from 'lucide-react';
+import { Shield, Terminal, Fingerprint, Activity, Radio, Clock, Bell, Volume2, VolumeX, Flame, Bug, Bot } from 'lucide-react';
 import { MainHubId } from '../../types';
 
 interface TopBarProps {
   activeHub: MainHubId;
   onSelectHub: (hub: MainHubId) => void;
   attackCountToday?: number;
+  onOpenAiSwarm?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ activeHub, onSelectHub, attackCountToday = 48192 }) => {
+export const TopBar: React.FC<TopBarProps> = ({ 
+  activeHub, 
+  onSelectHub, 
+  attackCountToday = 48192,
+  onOpenAiSwarm,
+}) => {
   const [currentTime, setCurrentTime] = useState('');
   const [audioMuted, setAudioMuted] = useState(true);
 
@@ -27,7 +33,7 @@ export const TopBar: React.FC<TopBarProps> = ({ activeHub, onSelectHub, attackCo
       id: 'pentest',
       label: 'PenTest Lab',
       icon: <Terminal className="w-4 h-4" />,
-      badge: '120+ TOOLS',
+      badge: '140+ ARSENAL',
       color: 'from-cyan-500 to-blue-600',
     },
     {
@@ -41,8 +47,15 @@ export const TopBar: React.FC<TopBarProps> = ({ activeHub, onSelectHub, attackCo
       id: 'soc',
       label: 'SOC Lab',
       icon: <Activity className="w-4 h-4" />,
-      badge: 'LIVE 3D GLOBE',
+      badge: '177+ COUNTRIES',
       color: 'from-emerald-500 to-teal-600',
+    },
+    {
+      id: 'vuln-news',
+      label: 'Vuln News',
+      icon: <Bug className="w-4 h-4" />,
+      badge: 'CVE RADAR',
+      color: 'from-amber-500 to-red-600',
     },
   ];
 
@@ -106,8 +119,21 @@ export const TopBar: React.FC<TopBarProps> = ({ activeHub, onSelectHub, attackCo
         })}
       </nav>
 
-      {/* Right Capsule: DEFCON 1, UTC Clock & Telemetry Indicators */}
-      <div className="flex items-center gap-3">
+      {/* Right Capsule: AI Cyber Swarm, DEFCON 1, UTC Clock & Telemetry Indicators */}
+      <div className="flex items-center gap-2.5">
+        {/* Virtual SOC AI Swarm Launcher Button */}
+        {onOpenAiSwarm && (
+          <button
+            onClick={onOpenAiSwarm}
+            title="Launch Virtual SOC AI Cyber Swarm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-cyan-500/30 border border-cyan-400/60 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer"
+          >
+            <Bot className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden lg:inline">AI Swarm</span>
+            <span className="px-1 py-0.2 rounded bg-purple-500 text-white text-[9px] font-black">5</span>
+          </button>
+        )}
+
         {/* DEFCON 1 Status Pill */}
         <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-400 text-xs font-bold font-mono">
           <Flame className="w-3.5 h-3.5 text-red-400 animate-pulse" />

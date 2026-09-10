@@ -1,7 +1,7 @@
 // ==========================================
 // ZAK'S SPIDER — 2027 SILICON VALLEY COMMAND CONSOLE (App.tsx)
-// Ground-up clean-slate implementation matching wireframe & DeepAstro aesthetic
-// 3 Primary Operations Hubs: PenTest Lab, Forensic Investigations, SOC Lab
+// 4 Primary Operations Hubs: PenTest Lab, Forensic Investigations, SOC Lab, Vuln News
+// Plus Multi-Agent Virtual SOC Cyber Swarm & Active IDS Sensor
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
@@ -12,14 +12,21 @@ import { BentoTopRow } from './components/shell/BentoTopRow';
 import { SocView } from './components/views/SocView';
 import { PentestView } from './components/views/PentestView';
 import { ForensicsView } from './components/views/ForensicsView';
-import { MainHubId } from './types';
+import { VulnNewsView } from './components/views/VulnNewsView';
+import { CyberAiSwarm } from './components/ai/CyberAiSwarm';
+import { MainHubId, VulnNewsItem } from './types';
 
 export const App: React.FC = () => {
-  // Primary Operations Hub: 'pentest' | 'forensics' | 'soc'
+  // Primary Operations Hub: 'pentest' | 'forensics' | 'soc' | 'vuln-news'
   const [activeHub, setActiveHub] = useState<MainHubId>('soc');
 
   // Active subcategory / pip selection for the NavRail
-  const [activeSubCategory, setActiveSubCategory] = useState<string>('ALL');
+  const [activeSubCategory, setActiveSubCategory] = useState<string>('globe');
+
+  // Virtual SOC Cyber AI Swarm state
+  const [isAiSwarmOpen, setIsAiSwarmOpen] = useState(false);
+  const [swarmPrompt, setSwarmPrompt] = useState<string | undefined>(undefined);
+  const [swarmContext, setSwarmContext] = useState<string | undefined>(undefined);
 
   // Synchronize default subcategory when changing hubs
   const handleSelectHub = (hub: MainHubId) => {
@@ -27,15 +34,33 @@ export const App: React.FC = () => {
     if (hub === 'pentest') setActiveSubCategory('ALL');
     else if (hub === 'forensics') setActiveSubCategory('username');
     else if (hub === 'soc') setActiveSubCategory('globe');
+    else if (hub === 'vuln-news') setActiveSubCategory('all');
   };
 
-  // Keyboard shortcuts (Alt+1 = PenTest, Alt+2 = Forensics, Alt+3 = SOC)
+  const handleOpenSwarm = (initialPrompt?: string, cveContext?: VulnNewsItem) => {
+    setSwarmPrompt(initialPrompt);
+    if (cveContext) {
+      setSwarmContext(`${cveContext.cveID}: ${cveContext.vulnerabilityName} (${cveContext.product})`);
+    } else {
+      setSwarmContext(undefined);
+    }
+    setIsAiSwarmOpen(true);
+  };
+
+  const handlePivotToPentest = (cmdOrTool: string) => {
+    setActiveHub('pentest');
+    setActiveSubCategory('ALL');
+  };
+
+  // Keyboard shortcuts (Alt+1 = PenTest, Alt+2 = Forensics, Alt+3 = SOC, Alt+4 = Vuln News, Alt+S = AI Swarm)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.altKey) {
         if (e.key === '1') handleSelectHub('pentest');
         else if (e.key === '2') handleSelectHub('forensics');
         else if (e.key === '3') handleSelectHub('soc');
+        else if (e.key === '4') handleSelectHub('vuln-news');
+        else if (e.key.toLowerCase() === 's') setIsAiSwarmOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -44,19 +69,20 @@ export const App: React.FC = () => {
 
   return (
     <ConsoleFrame>
-      {/* 1. High-Tech Top Bar matching wireframe */}
+      {/* 1. High-Tech Top Bar with all 4 Hubs + AI Swarm Launcher */}
       <TopBar
         activeHub={activeHub}
         onSelectHub={handleSelectHub}
         attackCountToday={48192}
+        onOpenAiSwarm={() => handleOpenSwarm('Audit global cyber attack trajectories and advise priority defense posture.')}
       />
 
       {/* 2. Top Bento Row (3 Cards: APS Ticker, Surface, CISA KEV Radar) */}
       <BentoTopRow
         totalAttacksCount={48192}
         onSelectCveCard={() => {
-          setActiveHub('pentest');
-          setActiveSubCategory('CISA KEV Zero-Days');
+          setActiveHub('vuln-news');
+          setActiveSubCategory('zero-days');
         }}
       />
 
@@ -71,11 +97,36 @@ export const App: React.FC = () => {
 
         {/* Center Stage & Right Deck */}
         <main className="flex-1 h-full overflow-hidden flex flex-col">
-          {activeHub === 'soc' && <SocView activeSubSection={activeSubCategory} />}
-          {activeHub === 'pentest' && <PentestView initialCategory={activeSubCategory} />}
-          {activeHub === 'forensics' && <ForensicsView initialTab={activeSubCategory as any} />}
+          {activeHub === 'soc' && (
+            <SocView
+              activeSubSection={activeSubCategory}
+              onOpenAiSwarm={(prompt) => handleOpenSwarm(prompt)}
+            />
+          )}
+          {activeHub === 'pentest' && (
+            <PentestView initialCategory={activeSubCategory} />
+          )}
+          {activeHub === 'forensics' && (
+            <ForensicsView initialTab={activeSubCategory as any} />
+          )}
+          {activeHub === 'vuln-news' && (
+            <VulnNewsView
+              activeSubSection={activeSubCategory}
+              onPivotToPentest={handlePivotToPentest}
+              onOpenAiSwarm={handleOpenSwarm}
+            />
+          )}
         </main>
       </div>
+
+      {/* 4. Autonomous Multi-Agent AI Cyber Swarm Modal */}
+      <CyberAiSwarm
+        isOpen={isAiSwarmOpen}
+        onClose={() => setIsAiSwarmOpen(false)}
+        initialPrompt={swarmPrompt}
+        contextPayload={swarmContext}
+        onPivotToPentest={handlePivotToPentest}
+      />
     </ConsoleFrame>
   );
 };

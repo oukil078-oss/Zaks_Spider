@@ -5,6 +5,7 @@
 // ==========================================
 
 import type { VulnNewsItem } from '../src/types';
+import { HISTORIC_CVE_CATALOG } from '../src/data/historicCveCatalog';
 
 const CISA_KEV_FEED_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
 
@@ -144,7 +145,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  const { query, vendor, severity, ransomware, force } = req.query || {};
+  const { query, vendor, severity, ransomware, era, force } = req.query || {};
 
   const now = Date.now();
   const shouldRefresh = force === 'true' || cachedVulns.length === 0 || now - lastFetchedTime > CACHE_TTL_MS;
@@ -195,10 +196,54 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Use cached or fallback
-  let results = cachedVulns.length > 0 ? [...cachedVulns] : [...CURATED_FALLBACK_VULNS];
+  // Build merged catalog: Historic Classics + CISA KEV Live Feed (deduplicating by cveID)
+  const baseLiveList = cachedVulns.length > 0 ? cachedVulns : CURATED_FALLBACK_VULNS;
+  const mergedMap = new Map<string, VulnNewsItem>();
 
-  // Filtering
+  // Add historic catalog first
+  for (const item of HISTORIC_CVE_CATALOG) {
+    mergedMap.set(item.cveID, item);
+  }
+
+  // Add live items, enriching if existing or adding new
+  for (const item of baseLiveList) {
+    if (mergedMap.has(item.cveID)) {
+      const existing = mergedMap.get(item.cveID)!;
+      mergedMap.set(item.cveID, { ...existing, ...item, historicEra: existing.historicEra || '2024-2026' });
+    } else {
+      const year = parseInt(item.dateAdded?.slice(0, 4) || '2025', 10);
+      let calcEra: VulnNewsItem['historicEra'] = '2024-2026';
+      if (year <= 2010) calcEra = '1999-2010';
+      else if (year <= 2019) calcEra = '2014-2019';
+      else if (year <= 2023) calcEra = '2020-2023';
+
+      mergedMap.set(item.cveID, {
+        ...item,
+        historicEra: calcEra,
+        epssScore: item.severity === 'CRITICAL' ? 0.965 : 0.842,
+        weaponized: item.knownRansomwareCampaignUse === 'Known' || item.severity === 'CRITICAL',
+      });
+    }
+  }
+
+  let results = Array.from(mergedMap.values());
+
+  // Era Filtering
+  if (era && typeof era === 'string' && era !== 'all') {
+    if (era === 'historic' || era === 'classics') {
+      results = results.filter(v => v.historicEra === '1999-2010' || v.historicEra === '2014-2019');
+    } else if (era === '2020-2023') {
+      results = results.filter(v => v.historicEra === '2020-2023');
+    } else if (era === '2024-2026' || era === 'zero-days') {
+      results = results.filter(v => v.historicEra === '2024-2026');
+    } else if (era === 'ransomware') {
+      results = results.filter(v => v.knownRansomwareCampaignUse === 'Known');
+    } else if (era === 'kev') {
+      results = results.filter(v => v.exploitStatus === 'In The Wild (KEV)');
+    }
+  }
+
+  // Search Query Filtering
   if (query && typeof query === 'string') {
     const q = query.toLowerCase();
     results = results.filter(v => 
@@ -206,7 +251,9 @@ export default async function handler(req: any, res: any) {
       v.vulnerabilityName.toLowerCase().includes(q) ||
       v.shortDescription.toLowerCase().includes(q) ||
       v.vendorProject.toLowerCase().includes(q) ||
-      v.product.toLowerCase().includes(q)
+      v.product.toLowerCase().includes(q) ||
+      (v.metasploitModule && v.metasploitModule.toLowerCase().includes(q)) ||
+      (v.exploitDbId && v.exploitDbId.toLowerCase().includes(q))
     );
   }
 
@@ -226,8 +273,9 @@ export default async function handler(req: any, res: any) {
   return res.status(200).json({
     success: true,
     count: results.length,
-    totalCatalog: cachedVulns.length || CURATED_FALLBACK_VULNS.length,
+    totalCatalog: mergedMap.size,
     lastUpdated: new Date(lastFetchedTime || Date.now()).toISOString(),
     items: results,
   });
 }
+

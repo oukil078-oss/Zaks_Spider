@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Globe2, ShieldAlert, AlertTriangle, ShieldCheck, 
-  ExternalLink, Search, Crosshair, ChevronRight, Zap, RefreshCw, X, Radio, Layers
+  ExternalLink, Search, Crosshair, ChevronRight, Zap, RefreshCw, X, Radio, Layers,
+  Activity, Shield, Terminal, Check, Bot
 } from 'lucide-react';
 import { Globe3D } from '../globe/Globe3D';
-import { GlobalCyberAttack } from '../../types';
+import { GlobalCyberAttack, IdsTrafficEvent } from '../../types';
 import { GLOBAL_THREAT_SEEDS, REAL_COUNTRY_THREATS, CountryThreatNode } from '../../data/threatFeed';
+import { apiService } from '../../services/api';
 
 interface SocViewProps {
   onAttackFocus?: (coords: [number, number]) => void;
   activeSubSection?: string;
+  onOpenAiSwarm?: (initialPrompt?: string) => void;
 }
 
-export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) => {
+export const SocView: React.FC<SocViewProps> = ({ 
+  activeSubSection = 'globe',
+  onOpenAiSwarm,
+}) => {
   const [attacks, setAttacks] = useState<GlobalCyberAttack[]>(() => {
     return GLOBAL_THREAT_SEEDS.map((seed, idx) => ({
       ...seed,
@@ -24,16 +30,77 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
   const [selectedAttack, setSelectedAttack] = useState<GlobalCyberAttack | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<CountryThreatNode | null>(null);
   const [focusCoords, setFocusCoords] = useState<[number, number] | null>(null);
-  const [rightDeckTab, setRightDeckTab] = useState<'stream' | 'countries'>('stream');
+  const [rightDeckTab, setRightDeckTab] = useState<'stream' | 'countries' | 'ids'>('stream');
   const [filterSeverity, setFilterSeverity] = useState<'ALL' | 'CRITICAL' | 'HIGH'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [triageModalOpen, setTriageModalOpen] = useState(false);
 
+  // Live IDS Sensor State
+  const [idsEvents, setIdsEvents] = useState<IdsTrafficEvent[]>([]);
+  const [idsStats, setIdsStats] = useState({
+    totalEvents: 14820,
+    activeCritical: 1,
+    activeHigh: 4,
+    threatsBlocked: 14872,
+    securityScore: 98,
+  });
+  const [activeAlertBanner, setActiveAlertBanner] = useState<IdsTrafficEvent | null>(null);
+  const [blockedIps, setBlockedIps] = useState<Set<string>>(new Set());
+
   // Sync with NavRail activeSubSection if changed
   useEffect(() => {
     if (activeSubSection === 'stream') setRightDeckTab('stream');
-    else if (activeSubSection === 'cve' || activeSubSection === 'aerospace') setRightDeckTab('countries');
+    else if (activeSubSection === 'countries' || activeSubSection === 'aerospace') setRightDeckTab('countries');
+    else if (activeSubSection === 'ids') setRightDeckTab('ids');
   }, [activeSubSection]);
+
+  // Poll IDS Events from /api/ids every 5 seconds
+  useEffect(() => {
+    const fetchIds = async () => {
+      try {
+        const res = await apiService.getIdsEvents();
+        if (res.events && res.events.length > 0) {
+          setIdsEvents(res.events);
+          if (res.stats) setIdsStats(res.stats);
+          const latest = res.events[0];
+          if (latest && (latest.severity === 'Critical' || latest.signature.includes('Nmap'))) {
+            setActiveAlertBanner(latest);
+          }
+        }
+      } catch (err) {
+        console.warn('IDS poll failed:', err);
+      }
+    };
+    fetchIds();
+    const interval = setInterval(fetchIds, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleBlockIp = (ip: string) => {
+    setBlockedIps((prev) => new Set(prev).add(ip));
+    setIdsEvents((prev) => prev.map((e) => (e.sourceIp === ip ? { ...e, status: 'Blocked' as const } : e)));
+    setTimeout(() => {
+      if (activeAlertBanner?.sourceIp === ip) setActiveAlertBanner(null);
+    }, 1500);
+  };
+
+  const handleTriggerSimulatedKaliProbe = async () => {
+    try {
+      const res = await apiService.triggerIdsProbe({
+        probeType: 'nmap-nse',
+        endpoint: '/api/v1/auth/internal-debug',
+        payload: 'nmap -sV -p 443 --script http-vuln-cve2024-3400',
+      });
+      if (res.detectedEvent) {
+        setIdsEvents((prev) => [res.detectedEvent, ...prev]);
+        setActiveAlertBanner(res.detectedEvent);
+        setRightDeckTab('ids');
+      }
+    } catch (e) {
+      console.warn('Kali probe trigger failed:', e);
+    }
+  };
+
 
   // Live attack injection timer simulating active real-world threat telemetry
   useEffect(() => {
@@ -75,6 +142,30 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
     return matchesSeverity && matchesSearch;
   });
 
+  const filteredCountries = REAL_COUNTRY_THREATS.filter((ct) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      ct.country.toLowerCase().includes(q) ||
+      ct.code.toLowerCase().includes(q) ||
+      ct.primaryVector.toLowerCase().includes(q) ||
+      ct.topActors.some((a) => a.toLowerCase().includes(q))
+    );
+  });
+
+  const filteredIdsEvents = idsEvents.filter((e) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      e.eventType.toLowerCase().includes(q) ||
+      e.signature.toLowerCase().includes(q) ||
+      e.sourceIp.toLowerCase().includes(q) ||
+      e.targetEndpoint.toLowerCase().includes(q) ||
+      e.country.toLowerCase().includes(q) ||
+      e.attackPhase.toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="flex-1 w-full h-full flex flex-col gap-3 overflow-hidden font-mono">
       {/* Main Grid: Left Stage (Globe) + Right Deck (Attack Stream / Country Rankings) */}
@@ -82,6 +173,44 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
         {/* Left Stage: 3D Living Globe (~65% width) */}
         <div className="lg:col-span-8 flex flex-col h-full rounded-2xl bg-[#060b14]/90 border border-cyan-500/20 overflow-hidden relative shadow-2xl">
           <div className="flex-1 w-full h-full relative">
+            {/* Urgent IDS Intercept Alert Banner */}
+            {activeAlertBanner && (
+              <div className="absolute top-3 left-3 right-3 z-30 p-3 rounded-2xl bg-red-950/95 border border-red-500/80 shadow-[0_0_30px_rgba(239,68,68,0.5)] backdrop-blur-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center text-white font-bold shrink-0 shadow-[0_0_15px_rgba(239,68,68,0.6)]">
+                    <ShieldAlert className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-black text-red-200 uppercase tracking-wider">
+                      <span>LIVE INTRUSION DETECTED // IDS SENSOR INTERCEPT</span>
+                      <span className="px-1.5 py-0.5 rounded bg-red-800/80 text-white text-[9px] font-mono">
+                        {activeAlertBanner.signature}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-red-300 font-mono mt-0.5">
+                      Source IP: <span className="font-bold text-white">{activeAlertBanner.sourceIp}</span> ({activeAlertBanner.country}) | Target: <span className="text-white">{activeAlertBanner.targetEndpoint}</span> (Port {activeAlertBanner.targetPort})
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleBlockIp(activeAlertBanner.sourceIp)}
+                    disabled={blockedIps.has(activeAlertBanner.sourceIp)}
+                    className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold flex items-center gap-1 transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>{blockedIps.has(activeAlertBanner.sourceIp) ? 'IP Blocked (DROP)' : 'Block IP (iptables DROP)'}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveAlertBanner(null)}
+                    className="text-red-300 hover:text-white p-1 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             <Globe3D
               attacks={attacks}
               selectedAttack={selectedAttack}
@@ -207,7 +336,19 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
                 }`}
               >
                 <Radio className="w-3.5 h-3.5" />
-                <span>Country Density ({REAL_COUNTRY_THREATS.length})</span>
+                <span>Countries ({REAL_COUNTRY_THREATS.length})</span>
+              </button>
+
+              <button
+                onClick={() => setRightDeckTab('ids')}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  rightDeckTab === 'ids'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span>IDS Sensor ({idsEvents.length})</span>
               </button>
             </div>
 
@@ -223,6 +364,17 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
                 {filterSeverity === 'CRITICAL' ? 'CRIT ONLY' : 'ALL SEV'}
               </button>
             )}
+
+            {rightDeckTab === 'ids' && (
+              <button
+                onClick={handleTriggerSimulatedKaliProbe}
+                className="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-cyan-500/40 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                title="Trigger simulated Nmap scan probe to honeypot"
+              >
+                <Zap className="w-3 h-3 text-cyan-400" />
+                <span>Test Kali Probe</span>
+              </button>
+            )}
           </div>
 
           {/* Search bar inside deck */}
@@ -233,7 +385,13 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={rightDeckTab === 'stream' ? 'Search actor, vector, city, CVE...' : 'Search country or threat family...'}
+                placeholder={
+                  rightDeckTab === 'stream'
+                    ? 'Search actor, vector, city, CVE...'
+                    : rightDeckTab === 'ids'
+                    ? 'Search IP, port, signature, or phase...'
+                    : 'Search all 177 countries, code, or APT actors...'
+                }
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900/80 border border-cyan-500/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
               />
             </div>
@@ -310,9 +468,9 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
                   </div>
                 );
               })
-            ) : (
-              // Real Country Threat Rankings (Dot Density Matrix)
-              REAL_COUNTRY_THREATS.map((ct) => {
+            ) : rightDeckTab === 'countries' ? (
+              // Real 177+ Sovereign Country Threat Rankings (Dot Density Matrix)
+              filteredCountries.map((ct) => {
                 const isSelected = selectedCountry?.country === ct.country;
                 return (
                   <div
@@ -359,6 +517,96 @@ export const SocView: React.FC<SocViewProps> = ({ activeSubSection = 'globe' }) 
                   </div>
                 );
               })
+            ) : (
+              // Live Active Network & Web IDS Traffic Stream
+              <div className="space-y-2">
+                {/* IDS Mini-Telemetry Dashboard */}
+                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="text-emerald-400 font-bold">SENSOR ARMED</span>
+                  </div>
+                  <div className="text-slate-400">
+                    Security Score: <span className="text-emerald-300 font-bold">{idsStats.securityScore}%</span> | Blocked: <span className="text-cyan-300 font-bold">{idsStats.threatsBlocked}</span>
+                  </div>
+                </div>
+
+                {filteredIdsEvents.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 border border-dashed border-cyan-500/20 rounded-xl">
+                    No active intrusion signatures detected.
+                  </div>
+                ) : (
+                  filteredIdsEvents.map((evt) => {
+                    const isBlocked = evt.status === 'Blocked' || blockedIps.has(evt.sourceIp);
+                    const isCrit = evt.severity === 'Critical';
+
+                    return (
+                      <div
+                        key={evt.id}
+                        className={`p-3 rounded-xl border transition-all ${
+                          isCrit
+                            ? 'bg-red-950/30 border-red-500/40'
+                            : 'bg-[#0a101e] border-emerald-500/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5 font-bold text-white text-[11px]">
+                            <span>{evt.countryFlag}</span>
+                            <span className="text-red-400">{evt.sourceIp}</span>
+                            <span className="text-slate-500">⟶</span>
+                            <span className="text-cyan-300 truncate max-w-[150px]">{evt.targetEndpoint}</span>
+                          </div>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                              isBlocked
+                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
+                                : 'bg-red-950 text-red-400 border border-red-500/40'
+                            }`}
+                          >
+                            {isBlocked ? 'BLOCKED' : 'ALERT'}
+                          </span>
+                        </div>
+
+                        <div className="text-xs font-bold text-slate-200 mb-1">
+                          {evt.eventType}
+                        </div>
+
+                        <div className="text-[10px] text-slate-400 font-mono mb-2">
+                          Sig: <span className="text-amber-300">{evt.signature}</span> | {evt.mitreTechnique}
+                        </div>
+
+                        <div className="p-2 rounded-lg bg-black/40 border border-white/5 text-[10px] text-slate-300 mb-2">
+                          {evt.mitigationTip}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                          <span className="text-[9px] text-slate-500">{evt.timestamp}</span>
+                          <div className="flex items-center gap-1.5">
+                            {!isBlocked && (
+                              <button
+                                onClick={() => handleBlockIp(evt.sourceIp)}
+                                className="px-2.5 py-1 rounded bg-red-600/80 hover:bg-red-500 text-white font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
+                              >
+                                <Zap className="w-2.5 h-2.5" />
+                                <span>Block IP</span>
+                              </button>
+                            )}
+                            {onOpenAiSwarm && (
+                              <button
+                                onClick={() => onOpenAiSwarm(`Formulate immediate incident response playbook for: ${evt.eventType} (${evt.signature}) from IP ${evt.sourceIp} targeting ${evt.targetEndpoint}`)}
+                                className="p-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 cursor-pointer"
+                                title="Triage with AI Swarm"
+                              >
+                                <Bot className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             )}
           </div>
         </div>

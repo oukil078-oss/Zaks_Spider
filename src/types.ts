@@ -2,13 +2,14 @@
 // ZAK'S SPIDER — CORE SYSTEM DATA TYPES
 // ==========================================
 
-export type MainHubId = 'pentest' | 'forensics' | 'soc';
+export type MainHubId = 'pentest' | 'forensics' | 'soc' | 'vuln-news';
 
 export type PenTestSubTab = 'arsenal' | 'crawler' | 'vuln-news' | 'payloads';
 export type ForensicsSubTab = 'username' | 'name' | 'phone' | 'gis' | 'dossier';
-export type SocSubTab = 'overview' | 'aerospace' | 'events' | 'vectors' | 'copilot';
+export type SocSubTab = 'overview' | 'aerospace' | 'events' | 'vectors' | 'copilot' | 'ids';
+export type VulnNewsSubTab = 'all' | 'zero-days' | 'ransomware' | 'classics' | 'kev' | 'ai-triage';
 
-export type SpiderTabId = 'soc' | 'forensics' | 'brain' | 'pentest' | 'crawler' | 'vuln-news' | 'copilot' | 'operator';
+export type SpiderTabId = 'soc' | 'forensics' | 'brain' | 'pentest' | 'crawler' | 'vuln-news' | 'copilot' | 'operator' | 'swarm';
 
 // --- Pentest Lab & Commands Types ---
 export interface CommandParameter {
@@ -251,6 +252,60 @@ export interface VulnNewsItem {
   cvssScore?: number;
   exploitStatus?: 'In The Wild (KEV)' | 'Public PoC' | 'Active Scanning' | 'Under Investigation';
   sourceUrl?: string;
+  historicEra?: '1999-2010' | '2014-2019' | '2020-2023' | '2024-2026';
+  exploitDbId?: string;
+  metasploitModule?: string;
+  epssScore?: number;
+  weaponized?: boolean;
+  pentestToolRef?: string;
+}
+
+// --- Live Active IDS & Anomaly Sensor Types ---
+export interface IdsTrafficEvent {
+  id: string;
+  timestamp: string;
+  sourceIp: string;
+  country: string;
+  countryFlag: string;
+  targetPort: number;
+  targetEndpoint: string;
+  eventType: string;
+  signature: string;
+  severity: 'Critical' | 'High' | 'Medium' | 'Low' | 'Info';
+  status: 'Blocked' | 'Inspected' | 'Alert';
+  payloadSnippet?: string;
+  attackPhase: 'Reconnaissance' | 'Initial Access' | 'Execution' | 'Credential Access' | 'Discovery';
+  mitigationTip: string;
+  mitreTechnique: string;
+  isAnomaly?: boolean;
+}
+
+// --- Virtual SOC & Multi-Agent AI Cyber Swarm Types ---
+export type CyberAiPersonaId = 'red-team' | 'dfir' | 'soc-lead' | 'reverse-eng' | 'ciso';
+
+export interface CyberAiAgentPersona {
+  id: CyberAiPersonaId;
+  name: string;
+  role: string;
+  callsign: string;
+  specialization: string;
+  avatar: string;
+  badgeColor: string;
+  systemPrompt: string;
+  description: string;
+  examplePrompts: string[];
+}
+
+export interface CyberAgentMessage {
+  id: string;
+  personaId: CyberAiPersonaId | 'user' | 'system';
+  senderName: string;
+  role: string;
+  text: string;
+  timestamp: string;
+  codeSnippet?: string;
+  commandRef?: string;
+  references?: string[];
 }
 
 // --- Copilot & AI Pentest Buddy Types ---
