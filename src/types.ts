@@ -303,6 +303,8 @@ export interface CyberAgentMessage {
   role: string;
   text: string;
   timestamp: string;
+  model?: string;
+  quotaNote?: string;
   codeSnippet?: string;
   commandRef?: string;
   references?: string[];
