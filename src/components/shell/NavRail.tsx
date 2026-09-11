@@ -32,6 +32,7 @@ export const NavRail: React.FC<NavRailProps> = ({
         ];
       case 'pentest':
         return [
+          { id: 'webrecon', label: 'Web Recon Station', icon: <Globe2 className="w-4 h-4 text-emerald-400" /> },
           { id: 'ALL', label: 'All Arsenal', icon: <Terminal className="w-4 h-4" /> },
           { id: 'Recon & Scanning', label: 'Recon & Scanning', icon: <Crosshair className="w-4 h-4" /> },
           { id: 'Web Exploitation', label: 'Web Exploitation', icon: <Bug className="w-4 h-4" /> },

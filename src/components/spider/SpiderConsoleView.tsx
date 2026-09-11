@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Globe, Share2, Users, Skull, Activity, ShieldCheck,
   ChevronRight, ArrowUpRight, Terminal, Cpu, Layers
@@ -24,6 +24,12 @@ export const SpiderConsoleView: React.FC<SpiderConsoleViewProps> = ({
   initialTab = 'ATTACK_SURFACE'
 }) => {
   const [activeTab, setActiveTab] = useState<SpiderTab>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [pivotEntity, setPivotEntity] = useState<{ value: string; type?: string } | null>(null);
 
   const handlePivotToGraph = (entity: string, type?: string) => {
