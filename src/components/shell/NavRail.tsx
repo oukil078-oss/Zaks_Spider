@@ -3,7 +3,8 @@ import {
   Terminal, Globe2, ShieldAlert, Bug, Crosshair, 
   Share2, Wifi, Database, Cpu, Radio, UserCheck, 
   MapPin, PhoneCall, FileText, Search, AtSign, Key,
-  Flame, Layers, ShieldCheck, Activity, ChevronLeft, ChevronRight
+  Flame, Layers, ShieldCheck, Activity, ChevronLeft, ChevronRight,
+  Scissors, Lock, FileCode
 } from 'lucide-react';
 import { MainHubId } from '../../types';
 
@@ -35,7 +36,9 @@ export const NavRail: React.FC<NavRailProps> = ({
         ];
       case 'forensics':
         return [
-          { id: 'gods-eye', label: "Global GEOINT 3D", icon: <Globe2 className="w-4 h-4 text-emerald-400" /> },
+          { id: 'defanger', label: 'IOC Defanger', icon: <Scissors className="w-4 h-4 text-blue-400" /> },
+          { id: 'evidence', label: 'Evidence Locker', icon: <Lock className="w-4 h-4 text-emerald-400" /> },
+          { id: 'gods-eye', label: "Global GEOINT 3D", icon: <Globe2 className="w-4 h-4 text-cyan-400" /> },
           { id: 'username', label: 'Sherlock OSINT', icon: <Search className="w-4 h-4" /> },
           { id: 'name', label: 'Subject & Dorks', icon: <AtSign className="w-4 h-4" /> },
           { id: 'phone', label: 'Phone Forensics', icon: <PhoneCall className="w-4 h-4" /> },
@@ -57,6 +60,7 @@ export const NavRail: React.FC<NavRailProps> = ({
           { id: 'stream', label: 'Live Attacks Stream', icon: <ShieldAlert className="w-4 h-4" /> },
           { id: 'countries', label: 'Country Threat Mesh', icon: <Radio className="w-4 h-4" /> },
           { id: 'ids', label: 'IDS Anomaly Detector', icon: <Activity className="w-4 h-4 text-emerald-400" /> },
+          { id: 'parser', label: 'Raw Log Parser', icon: <FileCode className="w-4 h-4 text-blue-400" /> },
         ];
     }
   };
