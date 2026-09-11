@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, Terminal, Fingerprint, Activity, Clock, 
-  Search, Bot, Globe, Radio, CheckCircle2, ChevronRight, Bug
+  Search, Bot, Globe, Radio, CheckCircle2, ChevronRight, Bug,
+  HelpCircle, Settings
 } from 'lucide-react';
 import { MainHubId } from '../../types';
 
@@ -12,6 +13,8 @@ interface TopBarProps {
   onOpenAiSwarm?: () => void;
   onOpenGodsEye?: () => void;
   onOpenCommandPalette?: () => void;
+  onOpenHotkeys?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ 
@@ -21,6 +24,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenAiSwarm,
   onOpenGodsEye,
   onOpenCommandPalette,
+  onOpenHotkeys,
+  onOpenSettings,
 }) => {
   const [currentTime, setCurrentTime] = useState('');
 
@@ -174,6 +179,28 @@ export const TopBar: React.FC<TopBarProps> = ({
           <Clock className="w-3 h-3 text-slate-400" />
           <span>{currentTime || 'SYNCING...'}</span>
         </div>
+
+        {/* Global Hotkeys HUD Button */}
+        {onOpenHotkeys && (
+          <button
+            onClick={onOpenHotkeys}
+            title="Keyboard Shortcuts & Hotkeys Reference (?)"
+            className="p-1.5 rounded-md bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Workstation Settings Drawer Button */}
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            title="Workstation Preferences & Ingestion Settings"
+            className="p-1.5 rounded-md bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </header>
   );

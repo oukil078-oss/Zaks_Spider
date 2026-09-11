@@ -8,6 +8,8 @@ import { ConsoleFrame } from './components/shell/ConsoleFrame';
 import { TopBar } from './components/shell/TopBar';
 import { NavRail } from './components/shell/NavRail';
 import { CommandPaletteModal } from './components/shell/CommandPaletteModal';
+import { GlobalHotkeysModal } from './components/shell/GlobalHotkeysModal';
+import { SettingsDrawer } from './components/shell/SettingsDrawer';
 import { SocView } from './components/views/SocView';
 import { PentestView } from './components/views/PentestView';
 import { ForensicsView } from './components/views/ForensicsView';
@@ -29,6 +31,10 @@ export const App: React.FC = () => {
 
   // Global Command Palette State
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Global Hotkeys HUD and Settings Drawer States
+  const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Synchronize default subcategory when changing hubs
   const handleSelectHub = (hub: MainHubId, defaultSub?: string) => {
@@ -71,6 +77,16 @@ export const App: React.FC = () => {
         return;
       }
 
+      // ? or Shift + /: Toggle Hotkeys modal (when not inside an input/textarea)
+      if (
+        (e.key === '?' || (e.shiftKey && e.key === '/')) &&
+        !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
+      ) {
+        e.preventDefault();
+        setIsHotkeysOpen(prev => !prev);
+        return;
+      }
+
       if (e.altKey) {
         if (e.key === '1') handleSelectHub('soc', 'globe');
         else if (e.key === '2') handleSelectHub('vuln-news', 'all');
@@ -99,6 +115,8 @@ export const App: React.FC = () => {
           setActiveSubCategory('gods-eye');
         }}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenHotkeys={() => setIsHotkeysOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {/* 2. Main Workbench Stage Layout (NavRail on Left + Full-Height Active View on Right) */}
@@ -149,6 +167,18 @@ export const App: React.FC = () => {
         initialPrompt={swarmPrompt}
         contextPayload={swarmContext}
         onPivotToPentest={handlePivotToPentest}
+      />
+
+      {/* 5. Global Hotkeys HUD Modal */}
+      <GlobalHotkeysModal
+        isOpen={isHotkeysOpen}
+        onClose={() => setIsHotkeysOpen(false)}
+      />
+
+      {/* 6. Workstation Settings Drawer */}
+      <SettingsDrawer
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </ConsoleFrame>
   );
