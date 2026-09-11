@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, Terminal, Fingerprint, Activity, Clock, 
   Search, Bot, Globe, Radio, CheckCircle2, ChevronRight, Bug,
-  HelpCircle, Settings
+  HelpCircle, Settings, Briefcase
 } from 'lucide-react';
 import { MainHubId } from '../../types';
+import { InvestigationCaseModal } from './InvestigationCaseModal';
 
 interface TopBarProps {
   activeHub: MainHubId;
@@ -41,6 +42,19 @@ export const TopBar: React.FC<TopBarProps> = ({
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
+  const [pinnedTarget, setPinnedTarget] = useState('198.51.100.42');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('spider_active_investigation_case');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.primaryTarget) setPinnedTarget(parsed.primaryTarget);
+      }
+    } catch (e) {}
+  }, [isCaseModalOpen]);
 
   const hubs: { id: MainHubId; label: string; icon: React.ReactNode; badge: string }[] = [
     {
@@ -180,6 +194,19 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         )}
 
+        {/* Active Investigation Case Session Pin */}
+        <button
+          onClick={() => setIsCaseModalOpen(true)}
+          title="Active Investigation Case Session & Target Pin"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0e1626] border border-cyan-500/30 hover:border-cyan-400 text-slate-200 hover:text-white text-xs font-medium transition-colors cursor-pointer"
+        >
+          <Briefcase className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden xl:inline text-slate-300">Case Pin:</span>
+          <span className="text-[10px] font-mono px-1 rounded bg-blue-950 text-cyan-300 border border-blue-800/60 max-w-[110px] truncate">
+            {pinnedTarget}
+          </span>
+        </button>
+
         {/* UTC Clock Capsule */}
         <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-900/80 border border-slate-800 text-slate-300 font-mono text-[11px]">
           <Clock className="w-3 h-3 text-slate-400" />
@@ -208,6 +235,13 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         )}
       </div>
+
+      {/* Active Investigation Case Session Modal */}
+      <InvestigationCaseModal
+        isOpen={isCaseModalOpen}
+        onClose={() => setIsCaseModalOpen(false)}
+        onPivotToHub={onSelectHub}
+      />
     </header>
   );
 };

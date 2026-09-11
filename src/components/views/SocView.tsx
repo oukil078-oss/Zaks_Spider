@@ -8,6 +8,7 @@ import { Globe3D } from '../globe/Globe3D';
 import { GlobalCyberAttack, IdsTrafficEvent } from '../../types';
 import { GLOBAL_THREAT_SEEDS, REAL_COUNTRY_THREATS, CountryThreatNode } from '../../data/threatFeed';
 import { apiService } from '../../services/api';
+import { FirewallRuleExporterModal } from '../soc/FirewallRuleExporterModal';
 
 interface SocViewProps {
   onAttackFocus?: (coords: [number, number]) => void;
@@ -71,6 +72,19 @@ export const SocView: React.FC<SocViewProps> = ({
   const [rawLogInput, setRawLogInput] = useState(SAMPLE_LOG_PACKS.log4j);
   const [parsedEvents, setParsedEvents] = useState<ParsedLogEvent[]>([]);
   const [isParsingLogs, setIsParsingLogs] = useState(false);
+
+  // Firewall Rule Exporter Modal State
+  const [firewallModalOpen, setFirewallModalOpen] = useState(false);
+  const [firewallTargetIp, setFirewallTargetIp] = useState('198.51.100.42');
+  const [firewallTargetPort, setFirewallTargetPort] = useState<number | undefined>(undefined);
+  const [firewallThreatContext, setFirewallThreatContext] = useState<string>('Hostile Ingress Probe');
+
+  const handleOpenFirewallExporter = (ip: string, port?: number, context?: string) => {
+    setFirewallTargetIp(ip);
+    setFirewallTargetPort(port);
+    setFirewallThreatContext(context || 'Perimeter Attack Ingress');
+    setFirewallModalOpen(true);
+  };
 
   // Sync with NavRail activeSubSection
   useEffect(() => {
@@ -744,14 +758,24 @@ export const SocView: React.FC<SocViewProps> = ({
 
                         <div className="mt-1 pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
                           <span className="text-slate-500">{evt.mitreTechnique}</span>
-                          <button
-                            onClick={() => handleBlockIp(evt.sourceIp)}
-                            disabled={blockedIps.has(evt.sourceIp)}
-                            className="px-1.5 py-0.5 rounded bg-red-900/40 hover:bg-red-800/60 text-red-300 text-[10px] flex items-center gap-1 transition-colors"
-                          >
-                            <Zap className="w-2.5 h-2.5" />
-                            <span>{blockedIps.has(evt.sourceIp) ? 'Dropped' : 'Drop IP'}</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenFirewallExporter(evt.sourceIp, undefined, `${evt.attackType} (${evt.mitreTechnique})`)}
+                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Export Production Firewall Rules (iptables, ufw, Cisco, Cloudflare)"
+                            >
+                              <Shield className="w-2.5 h-2.5 text-blue-400" />
+                              <span>Firewall</span>
+                            </button>
+                            <button
+                              onClick={() => handleBlockIp(evt.sourceIp)}
+                              disabled={blockedIps.has(evt.sourceIp)}
+                              className="px-1.5 py-0.5 rounded bg-red-900/40 hover:bg-red-800/60 text-red-300 text-[10px] flex items-center gap-1 transition-colors"
+                            >
+                              <Zap className="w-2.5 h-2.5" />
+                              <span>{blockedIps.has(evt.sourceIp) ? 'Dropped' : 'Drop IP'}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -776,6 +800,13 @@ export const SocView: React.FC<SocViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleOpenFirewallExporter('198.51.100.42', 443, 'Perimeter Attack Ingress')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-red-500/20 border border-slate-700/60 hover:border-red-500/40 text-slate-300 hover:text-red-300 transition-colors cursor-pointer text-xs"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+            <span>Firewall Rule Exporter</span>
+          </button>
           <button
             onClick={() => {
               setAttacks(
@@ -847,6 +878,15 @@ export const SocView: React.FC<SocViewProps> = ({
 
             <div className="mt-5 pt-3 border-t border-cyan-500/20 flex justify-end gap-2">
               <button
+                onClick={() => {
+                  handleOpenFirewallExporter(selectedAttack.sourceCoords ? '198.51.100.42' : '198.51.100.42', selectedAttack.port || 443, `${selectedAttack.threatActor} via ${selectedAttack.vector}`);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-red-300 border border-red-800/60 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Export Firewall Rules</span>
+              </button>
+              <button
                 onClick={() => setTriageModalOpen(false)}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
               >
@@ -865,6 +905,15 @@ export const SocView: React.FC<SocViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Real-World Firewall Rule Exporter Modal */}
+      <FirewallRuleExporterModal
+        isOpen={firewallModalOpen}
+        onClose={() => setFirewallModalOpen(false)}
+        defaultIp={firewallTargetIp}
+        defaultPort={firewallTargetPort}
+        threatContext={firewallThreatContext}
+      />
     </div>
   );
 };
