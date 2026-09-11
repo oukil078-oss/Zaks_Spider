@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Terminal, Fingerprint, Activity, Radio, Clock, Bell, Volume2, VolumeX, Flame, Bug, Bot, Globe } from 'lucide-react';
+import { 
+  Shield, Terminal, Fingerprint, Activity, Clock, 
+  Search, Bot, Globe, Radio, CheckCircle2, ChevronRight, Bug
+} from 'lucide-react';
 import { MainHubId } from '../../types';
 
 interface TopBarProps {
@@ -8,181 +11,171 @@ interface TopBarProps {
   attackCountToday?: number;
   onOpenAiSwarm?: () => void;
   onOpenGodsEye?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ 
   activeHub, 
   onSelectHub, 
-  attackCountToday = 48192,
+  attackCountToday,
   onOpenAiSwarm,
   onOpenGodsEye,
+  onOpenCommandPalette,
 }) => {
   const [currentTime, setCurrentTime] = useState('');
-  const [audioMuted, setAudioMuted] = useState(true);
 
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      setCurrentTime(now.toUTCString().replace('GMT', 'UTC'));
+      const hours = String(now.getUTCHours()).padStart(2, '0');
+      const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+      setCurrentTime(`${hours}:${minutes}:${seconds} UTC`);
     };
     updateClock();
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const hubs: { id: MainHubId; label: string; icon: React.ReactNode; badge: string; color: string }[] = [
-    {
-      id: 'pentest',
-      label: 'PenTest Lab',
-      icon: <Terminal className="w-4 h-4" />,
-      badge: '140+ ARSENAL',
-      color: 'from-cyan-500 to-blue-600',
-    },
-    {
-      id: 'forensics',
-      label: 'Forensic Investigations',
-      icon: <Fingerprint className="w-4 h-4" />,
-      badge: '52 PLATFORMS',
-      color: 'from-purple-500 to-pink-600',
-    },
+  const hubs: { id: MainHubId; label: string; icon: React.ReactNode; badge: string }[] = [
     {
       id: 'soc',
-      label: 'SOC Lab',
-      icon: <Activity className="w-4 h-4" />,
-      badge: '177+ COUNTRIES',
-      color: 'from-emerald-500 to-teal-600',
+      label: 'SOC & Telemetry',
+      icon: <Activity className="w-3.5 h-3.5" />,
+      badge: 'LIVE MESH',
     },
     {
       id: 'vuln-news',
-      label: 'Vuln News',
-      icon: <Bug className="w-4 h-4" />,
-      badge: 'CVE RADAR',
-      color: 'from-amber-500 to-red-600',
+      label: 'Threat Intel & KEV',
+      icon: <Bug className="w-3.5 h-3.5" />,
+      badge: 'CISA KEV',
+    },
+    {
+      id: 'forensics',
+      label: 'Forensics & OSINT',
+      icon: <Fingerprint className="w-3.5 h-3.5" />,
+      badge: 'DOSSIER',
+    },
+    {
+      id: 'pentest',
+      label: 'Offensive Recon',
+      icon: <Terminal className="w-3.5 h-3.5" />,
+      badge: 'ARSENAL',
     },
   ];
 
   return (
-    <header className="w-full flex items-center justify-between pb-3 border-b border-cyan-500/15 gap-4">
-      {/* Left Capsule: Brand & Classification */}
-      <div className="flex items-center gap-3 bg-[#0a101d]/90 border border-cyan-500/20 px-4 py-2 rounded-2xl shadow-inner backdrop-blur-md">
-        <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-[0_0_15px_rgba(0,240,255,0.4)]">
-          <Shield className="w-4 h-4 text-black stroke-[2.5]" />
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-black tracking-widest text-white uppercase drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]">
-              Zak's Spider
-            </span>
-            <span className="px-1.5 py-0.5 text-[9px] font-bold tracking-wider rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-              v4.9.2
-            </span>
+    <header className="w-full flex items-center justify-between px-3 py-2 bg-[#0b101b] border border-slate-800/80 rounded-lg shrink-0 gap-3 select-none">
+      {/* Left: Brand Identity & Active Status */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-slate-900 border border-slate-700/70 text-blue-400">
+            <Shield className="w-4 h-4 text-blue-400 stroke-[2.2]" />
           </div>
-          <p className="text-[9px] tracking-wider text-slate-400 uppercase flex items-center gap-1.5 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Classified // Cyber Recon Matrix
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold tracking-wider text-slate-100 uppercase">
+                Spider SecOps
+              </span>
+              <span className="px-1.5 py-0.2 text-[10px] font-mono rounded bg-slate-800 text-slate-400 border border-slate-700">
+                PROD
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>FEEDS NOMINAL</span>
+            </div>
+          </div>
         </div>
+
+        <div className="h-5 w-[1px] bg-slate-800 hidden sm:block" />
+
+        {/* Global Omnibar Trigger Button */}
+        <button
+          onClick={onOpenCommandPalette}
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#080d17] border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-colors text-xs cursor-pointer w-64 justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-slate-400 font-sans">Quick search or command...</span>
+          </div>
+          <kbd className="flex items-center text-[10px] font-mono bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700 text-slate-400">
+            Ctrl+K
+          </kbd>
+        </button>
       </div>
 
-      {/* Center: The 3 Primary Hubs */}
-      <nav className="flex items-center p-1.5 rounded-2xl bg-[#080d18]/95 border border-cyan-500/20 shadow-[0_0_25px_rgba(0,0,0,0.6)] backdrop-blur-xl gap-2">
+      {/* Center: Clean Enterprise Workspace Navigation */}
+      <nav className="flex items-center gap-1 bg-[#070b13] p-1 rounded-md border border-slate-800/80">
         {hubs.map((hub) => {
           const isActive = activeHub === hub.id;
           return (
             <button
               key={hub.id}
               onClick={() => onSelectHub(hub.id)}
-              className={`relative flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-white border border-cyan-400/50 shadow-[0_0_20px_rgba(0,240,255,0.25)]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
+                  ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
               }`}
             >
-              <span className={`${isActive ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]' : 'text-slate-400'}`}>
+              <span className={isActive ? 'text-blue-400' : 'text-slate-500'}>
                 {hub.icon}
               </span>
               <span>{hub.label}</span>
               <span
-                className={`text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider font-mono ${
+                className={`text-[9px] px-1.5 py-0.2 rounded font-mono hidden lg:inline ${
                   isActive
-                    ? 'bg-cyan-400 text-black font-extrabold shadow-[0_0_8px_rgba(0,240,255,0.6)]'
-                    : 'bg-slate-800 text-slate-400 border border-slate-700/50'
+                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                    : 'bg-slate-900 text-slate-500'
                 }`}
               >
                 {hub.badge}
               </span>
-              {isActive && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-cyan-400 rounded-full shadow-[0_0_8px_#00f0ff]" />
-              )}
             </button>
           );
         })}
       </nav>
 
-      {/* Right Capsule: AI Cyber Swarm, DEFCON 1, UTC Clock & Telemetry Indicators */}
-      <div className="flex items-center gap-2.5">
-        {/* Global GEOINT Sovereign 3D Cockpit Launcher */}
+      {/* Right: Operational Launchers & UTC Time */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Global GEOINT 3D Cockpit Toggle */}
         {onOpenGodsEye && (
           <button
             onClick={onOpenGodsEye}
-            title="Launch Global GEOINT Sovereign 3D Cockpit"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600/30 to-blue-600/30 border border-cyan-400/60 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer"
+            title="Open Global GEOINT 3D Viewshed & Live Camera Network"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0e1626] border border-slate-700/80 hover:border-slate-600 text-slate-200 hover:text-white text-xs font-medium transition-colors cursor-pointer"
           >
-            <Globe className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden md:inline">Global GEOINT</span>
-            <span className="px-1 py-0.2 rounded bg-cyan-500 text-black text-[9px] font-black">3D</span>
+            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden xl:inline">Global GEOINT</span>
+            <span className="text-[10px] font-mono px-1 rounded bg-slate-800 text-emerald-400 border border-slate-700">
+              6.9k+
+            </span>
           </button>
         )}
 
-        {/* Virtual SOC AI Swarm Launcher Button */}
+        {/* Autonomous AI Swarm Launcher */}
         {onOpenAiSwarm && (
           <button
             onClick={onOpenAiSwarm}
-            title="Launch Virtual SOC AI Cyber Swarm"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-cyan-500/30 border border-cyan-400/60 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer"
+            title="Launch Multi-Agent SOC Threat Swarm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0e1626] border border-slate-700/80 hover:border-slate-600 text-slate-200 hover:text-white text-xs font-medium transition-colors cursor-pointer"
           >
-            <Bot className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden lg:inline">AI Swarm</span>
-            <span className="px-1 py-0.2 rounded bg-purple-500 text-white text-[9px] font-black">5</span>
+            <Bot className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden xl:inline">AI Swarm</span>
+            <span className="text-[10px] font-mono px-1 rounded bg-blue-950 text-blue-400 border border-blue-800/60">
+              Active
+            </span>
           </button>
         )}
 
-        {/* DEFCON 1 Status Pill */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-400 text-xs font-bold font-mono">
-          <Flame className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-          <span>DEFCON 1</span>
-          <span className="text-[10px] text-red-300/70 border-l border-red-500/30 pl-2">
-            ACTIVE SURGE
-          </span>
-        </div>
-
-        {/* Live Clock & Audio Mute Capsule matching wireframe */}
-        <div className="flex items-center gap-2.5 bg-[#0a101d]/90 border border-cyan-500/20 px-3.5 py-2 rounded-2xl shadow-inner font-mono text-xs text-slate-300 backdrop-blur-md">
-          <div className="flex items-center gap-1.5 text-cyan-300 font-semibold">
-            <Clock className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
-            <span className="text-[11px] tracking-wider">{currentTime || 'SYNCING UTC...'}</span>
-          </div>
-
-          <div className="w-[1px] h-4 bg-cyan-500/20 mx-1" />
-
-          {/* Audio toggle button */}
-          <button
-            onClick={() => setAudioMuted(!audioMuted)}
-            title={audioMuted ? 'Telemetry Audio Muted' : 'Telemetry Audio Live'}
-            className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-cyan-500/20 border border-slate-700/60 hover:border-cyan-500/40 text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer"
-          >
-            {audioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-cyan-400" />}
-          </button>
-
-          {/* Live stream status dot */}
-          <div className="relative flex items-center justify-center w-3 h-3" title="Worldwide Cyber Attack Pipeline Online">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
-            <span className="w-2 h-2 rounded-full bg-emerald-400 absolute" />
-          </div>
+        {/* UTC Clock Capsule */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-900/80 border border-slate-800 text-slate-300 font-mono text-[11px]">
+          <Clock className="w-3 h-3 text-slate-400" />
+          <span>{currentTime || 'SYNCING...'}</span>
         </div>
       </div>
     </header>
   );
 };
+

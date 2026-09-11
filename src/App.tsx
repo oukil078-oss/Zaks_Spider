@@ -1,14 +1,13 @@
 // ==========================================
-// ZAK'S SPIDER — 2027 SILICON VALLEY COMMAND CONSOLE (App.tsx)
-// 4 Primary Operations Hubs: PenTest Lab, Forensic Investigations, SOC Lab, Vuln News
-// Plus Multi-Agent Virtual SOC Cyber Swarm & Active IDS Sensor
+// SPIDER — CYBER THREAT INTELLIGENCE & OPERATIONS WORKSTATION
+// 4 Primary Hubs: SOC & Telemetry, Threat Intel & KEV, Forensics & OSINT, Offensive Recon
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
 import { ConsoleFrame } from './components/shell/ConsoleFrame';
 import { TopBar } from './components/shell/TopBar';
 import { NavRail } from './components/shell/NavRail';
-import { BentoTopRow } from './components/shell/BentoTopRow';
+import { CommandPaletteModal } from './components/shell/CommandPaletteModal';
 import { SocView } from './components/views/SocView';
 import { PentestView } from './components/views/PentestView';
 import { ForensicsView } from './components/views/ForensicsView';
@@ -17,10 +16,10 @@ import { CyberAiSwarm } from './components/ai/CyberAiSwarm';
 import { MainHubId, VulnNewsItem } from './types';
 
 export const App: React.FC = () => {
-  // Primary Operations Hub: 'pentest' | 'forensics' | 'soc' | 'vuln-news'
+  // Primary Operations Hub: 'soc' | 'vuln-news' | 'forensics' | 'pentest'
   const [activeHub, setActiveHub] = useState<MainHubId>('soc');
 
-  // Active subcategory / pip selection for the NavRail
+  // Active subcategory selection for NavRail
   const [activeSubCategory, setActiveSubCategory] = useState<string>('globe');
 
   // Virtual SOC Cyber AI Swarm state
@@ -28,13 +27,23 @@ export const App: React.FC = () => {
   const [swarmPrompt, setSwarmPrompt] = useState<string | undefined>(undefined);
   const [swarmContext, setSwarmContext] = useState<string | undefined>(undefined);
 
+  // Global Command Palette State
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
   // Synchronize default subcategory when changing hubs
-  const handleSelectHub = (hub: MainHubId) => {
+  const handleSelectHub = (hub: MainHubId, defaultSub?: string) => {
     setActiveHub(hub);
-    if (hub === 'pentest') setActiveSubCategory('ALL');
-    else if (hub === 'forensics') setActiveSubCategory('username');
-    else if (hub === 'soc') setActiveSubCategory('globe');
-    else if (hub === 'vuln-news') setActiveSubCategory('all');
+    if (defaultSub) {
+      setActiveSubCategory(defaultSub);
+    } else if (hub === 'pentest') {
+      setActiveSubCategory('ALL');
+    } else if (hub === 'forensics') {
+      setActiveSubCategory('username');
+    } else if (hub === 'soc') {
+      setActiveSubCategory('globe');
+    } else if (hub === 'vuln-news') {
+      setActiveSubCategory('all');
+    }
   };
 
   const handleOpenSwarm = (initialPrompt?: string, cveContext?: VulnNewsItem) => {
@@ -52,14 +61,21 @@ export const App: React.FC = () => {
     setActiveSubCategory('ALL');
   };
 
-  // Keyboard shortcuts (Alt+1 = PenTest, Alt+2 = Forensics, Alt+3 = SOC, Alt+4 = Vuln News, Alt+S = AI Swarm)
+  // Keyboard shortcuts (Ctrl+K = Omnibar, Alt+1 = SOC, Alt+2 = Vuln, Alt+3 = Forensics, Alt+4 = PenTest, Alt+S = AI)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K or Cmd+K: Omnibar
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+        return;
+      }
+
       if (e.altKey) {
-        if (e.key === '1') handleSelectHub('pentest');
-        else if (e.key === '2') handleSelectHub('forensics');
-        else if (e.key === '3') handleSelectHub('soc');
-        else if (e.key === '4') handleSelectHub('vuln-news');
+        if (e.key === '1') handleSelectHub('soc', 'globe');
+        else if (e.key === '2') handleSelectHub('vuln-news', 'all');
+        else if (e.key === '3') handleSelectHub('forensics', 'username');
+        else if (e.key === '4') handleSelectHub('pentest', 'ALL');
         else if (e.key.toLowerCase() === 's') setIsAiSwarmOpen((prev) => !prev);
         else if (e.key.toLowerCase() === 'g') {
           setActiveHub('forensics');
@@ -73,40 +89,29 @@ export const App: React.FC = () => {
 
   return (
     <ConsoleFrame>
-      {/* 1. High-Tech Top Bar with all 4 Hubs + AI Swarm Launcher */}
+      {/* 1. Executive Top Bar with Hub Switcher & Omnibar Trigger */}
       <TopBar
         activeHub={activeHub}
         onSelectHub={handleSelectHub}
-        attackCountToday={48192}
         onOpenAiSwarm={() => handleOpenSwarm('Audit global cyber attack trajectories and advise priority defense posture.')}
         onOpenGodsEye={() => {
           setActiveHub('forensics');
           setActiveSubCategory('gods-eye');
         }}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
 
-      {/* 2. Top Bento Row (3 Cards: APS Ticker, Surface, CISA KEV Radar) - Hidden in Global GEOINT for maximum screen real estate */}
-      {!(activeHub === 'forensics' && activeSubCategory === 'gods-eye') && (
-        <BentoTopRow
-          totalAttacksCount={48192}
-          onSelectCveCard={() => {
-            setActiveHub('vuln-news');
-            setActiveSubCategory('zero-days');
-          }}
-        />
-      )}
-
-      {/* 3. Main Stage Layout (NavRail on Left + Active Hub View on Right) */}
-      <div className="flex-1 w-full flex items-stretch gap-3 overflow-hidden">
-        {/* Left Vertical Rail matching wireframe */}
+      {/* 2. Main Workbench Stage Layout (NavRail on Left + Full-Height Active View on Right) */}
+      <div className="flex-1 w-full flex items-stretch gap-2.5 overflow-hidden">
+        {/* Left Collapsible Navigation Rail */}
         <NavRail
           activeHub={activeHub}
           activeSubCategory={activeSubCategory}
           onSelectSubCategory={(cat) => setActiveSubCategory(cat)}
         />
 
-        {/* Center Stage & Right Deck */}
-        <main className="flex-1 h-full overflow-hidden flex flex-col">
+        {/* Center Stage & Primary Viewport */}
+        <main className="flex-1 h-full overflow-hidden flex flex-col bg-[#0b101b] border border-slate-800/80 rounded-lg">
           {activeHub === 'soc' && (
             <SocView
               activeSubSection={activeSubCategory}
@@ -129,6 +134,14 @@ export const App: React.FC = () => {
         </main>
       </div>
 
+      {/* 3. Global Omnibar / Command Palette Modal */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectHub={handleSelectHub}
+        onOpenAiSwarm={handleOpenSwarm}
+      />
+
       {/* 4. Autonomous Multi-Agent AI Cyber Swarm Modal */}
       <CyberAiSwarm
         isOpen={isAiSwarmOpen}
@@ -142,3 +155,4 @@ export const App: React.FC = () => {
 };
 
 export default App;
+
