@@ -2,7 +2,7 @@
 // ZAK'S SPIDER — CORE SYSTEM DATA TYPES
 // ==========================================
 
-export type MainHubId = 'pentest' | 'forensics' | 'soc' | 'vuln-news';
+export type MainHubId = 'pentest' | 'forensics' | 'soc' | 'vuln-news' | 'spider';
 
 export type PenTestSubTab = 'arsenal' | 'crawler' | 'vuln-news' | 'payloads';
 export type ForensicsSubTab = 'username' | 'name' | 'phone' | 'gis' | 'dossier';

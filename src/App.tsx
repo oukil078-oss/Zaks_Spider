@@ -14,6 +14,7 @@ import { SocView } from './components/views/SocView';
 import { PentestView } from './components/views/PentestView';
 import { ForensicsView } from './components/views/ForensicsView';
 import { VulnNewsView } from './components/views/VulnNewsView';
+import { SpiderConsoleView, SpiderTab } from './components/spider/SpiderConsoleView';
 import { CyberAiSwarm } from './components/ai/CyberAiSwarm';
 import { MainHubId, VulnNewsItem } from './types';
 
@@ -41,6 +42,8 @@ export const App: React.FC = () => {
     setActiveHub(hub);
     if (defaultSub) {
       setActiveSubCategory(defaultSub);
+    } else if (hub === 'spider') {
+      setActiveSubCategory('attack-surface');
     } else if (hub === 'pentest') {
       setActiveSubCategory('ALL');
     } else if (hub === 'forensics') {
@@ -136,7 +139,27 @@ export const App: React.FC = () => {
               onOpenAiSwarm={(prompt) => handleOpenSwarm(prompt)}
             />
           )}
-          {activeHub === 'pentest' && (
+          {activeHub === 'spider' && (
+              <SpiderConsoleView
+                onPivotToSoc={(ip) => {
+                  handleSelectHub('soc');
+                }}
+                onPivotToForensics={(target) => {
+                  handleSelectHub('forensics');
+                }}
+                onPivotToSwarm={(prompt) => {
+                  handleOpenSwarm(prompt);
+                }}
+                initialTab={
+                  activeSubCategory === 'link-graph' ? 'LINK_GRAPH' :
+                  activeSubCategory === 'identity' ? 'IDENTITY' :
+                  activeSubCategory === 'ransomware' ? 'RANSOMWARE' :
+                  'ATTACK_SURFACE'
+                }
+              />
+            )}
+
+            {activeHub === 'pentest' && (
             <PentestView initialCategory={activeSubCategory} />
           )}
           {activeHub === 'forensics' && (

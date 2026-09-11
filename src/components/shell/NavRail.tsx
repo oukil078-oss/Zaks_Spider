@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Terminal, Globe2, ShieldAlert, Bug, Crosshair, 
+  Skull, Fingerprint, Terminal, Globe2, ShieldAlert, Bug, Crosshair, 
   Share2, Wifi, Database, Cpu, Radio, UserCheck, 
   MapPin, PhoneCall, FileText, Search, AtSign, Key,
   Flame, Layers, ShieldCheck, Activity, ChevronLeft, ChevronRight,
@@ -23,6 +23,13 @@ export const NavRail: React.FC<NavRailProps> = ({
 
   const getPipsForHub = () => {
     switch (activeHub) {
+      case 'spider':
+        return [
+          { id: 'attack-surface', label: 'Attack Surface', icon: <Globe2 className="w-4 h-4 text-cyan-400" /> },
+          { id: 'link-graph', label: 'Threat Link-Graph', icon: <Share2 className="w-4 h-4 text-indigo-400" /> },
+          { id: 'identity', label: 'OSINT Identity', icon: <Fingerprint className="w-4 h-4 text-emerald-400" /> },
+          { id: 'ransomware', label: 'Dark Web & Ransomware', icon: <Skull className="w-4 h-4 text-rose-400" /> },
+        ];
       case 'pentest':
         return [
           { id: 'ALL', label: 'All Arsenal', icon: <Terminal className="w-4 h-4" /> },

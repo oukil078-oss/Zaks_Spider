@@ -38,6 +38,16 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   const commandItems: CommandItem[] = useMemo(() => [
     // Primary Hubs
     {
+      id: 'hub-spider',
+      title: 'The Spider Suite (Crown Jewel Recon)',
+      category: 'Workspaces',
+      hub: 'spider',
+      subCategory: 'attack-surface',
+      icon: <Globe className="w-4 h-4 text-cyan-400" />,
+      badge: '4 RECON ENGINES',
+      description: 'Unified Attack Surface Discovery, Threat Link-Graph, OSINT Identity & Ransomware Radar.',
+    },
+    {
       id: 'hub-soc',
       title: 'SOC & Telemetry Hub',
       category: 'Workspaces',

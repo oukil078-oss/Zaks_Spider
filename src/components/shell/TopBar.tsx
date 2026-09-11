@@ -62,6 +62,12 @@ export const TopBar: React.FC<TopBarProps> = ({
       badge: 'DOSSIER',
     },
     {
+      id: 'spider',
+      label: 'The Spider Suite',
+      icon: <Globe className="w-3.5 h-3.5 text-cyan-400" />,
+      badge: 'RECON & GRAPH',
+    },
+    {
       id: 'pentest',
       label: 'Offensive Recon',
       icon: <Terminal className="w-3.5 h-3.5" />,
