@@ -13,6 +13,660 @@ import type {
   SensitiveFileFinding
 } from '../src/types';
 
+// Allow self-signed certificates for local labs & private pentests
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// Check if a hostname is local, loopback, or private RFC1918
+function isLocalOrInternal(h: string): boolean {
+  const lower = h.toLowerCase();
+  if (lower === 'localhost' || lower.endsWith('.localhost') || lower.endsWith('.local') || lower.endsWith('.internal') || lower.endsWith('.test')) {
+    return true;
+  }
+  if (net.isIP(lower)) {
+    if (lower.startsWith('127.') || lower.startsWith('10.') || lower.startsWith('192.168.') || lower === '::1') {
+      return true;
+    }
+    const match = lower.match(/^172\.(\d+)\./);
+    if (match) {
+      const octet = parseInt(match[1], 10);
+      if (octet >= 16 && octet <= 31) return true;
+    }
+  }
+  return false;
+}
+
+// Decode HTML entities
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&commat;/gi, '@')
+    .replace(/&period;/gi, '.')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, '&');
+}
+
+// Comprehensive multi-source email harvester
+function harvestEmailsFromText(text: string): string[] {
+  const emailSet = new Set<string>();
+
+  // 1. Direct regex on raw content
+  const rawMatches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+  rawMatches.forEach(e => emailSet.add(e.toLowerCase().trim()));
+
+  // 2. Mailto attributes (with URI decoding)
+  const mailtoMatches = text.matchAll(/href=["']mailto:([^"'\s?#]+)/gi);
+  for (const m of mailtoMatches) {
+    try {
+      const decodedMail = decodeURIComponent(m[1]).toLowerCase().trim();
+      if (decodedMail.includes('@')) emailSet.add(decodedMail);
+    } catch {
+      const rawMail = m[1].toLowerCase().trim();
+      if (rawMail.includes('@')) emailSet.add(rawMail);
+    }
+  }
+
+  // 3. Decoded HTML entities
+  const decoded = decodeHtmlEntities(text);
+  const decodedMatches = decoded.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+  decodedMatches.forEach(e => emailSet.add(e.toLowerCase().trim()));
+
+  // 4. Cloudflare email protection XOR decoding
+  const cfMatches = [
+    ...text.matchAll(/data-cfemail=["']([a-f0-9]+)["']/gi),
+    ...text.matchAll(/\/cdn-cgi\/l\/email-protection#([a-f0-9]+)/gi),
+  ];
+  for (const m of cfMatches) {
+    try {
+      const hex = m[1];
+      const k = parseInt(hex.substring(0, 2), 16);
+      let dec = '';
+      for (let i = 2; i < hex.length; i += 2) {
+        dec += String.fromCharCode(parseInt(hex.substr(i, 2), 16) ^ k);
+      }
+      if (dec.includes('@')) emailSet.add(dec.toLowerCase().trim());
+    } catch {}
+  }
+
+  // 5. Obfuscated patterns like user [at] domain [dot] com
+  const obfMatches = decoded.matchAll(/([a-zA-Z0-9._%+-]+)\s*(?:\[at\]|\(at\)|\s+at\s+)\s*([a-zA-Z0-9.-]+)\s*(?:\[dot\]|\(dot\)|\.|\s+dot\s+)\s*([a-zA-Z]{2,})/gi);
+  for (const o of obfMatches) {
+    const reconstructed = `${o[1]}@${o[2]}.${o[3]}`.toLowerCase().trim();
+    if (reconstructed.includes('@')) emailSet.add(reconstructed);
+  }
+
+  return Array.from(emailSet).filter(e => {
+    return !e.match(/\.(png|jpg|jpeg|gif|svg|webp|css|js|ico|woff|woff2|ttf|map)$/i);
+  });
+}
+
+// 45+ High-Priority Pentest Probes Wordlist
+interface ProbeTarget {
+  path: string;
+  category: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFO';
+  note: string;
+  validator: (status: number, text: string, headers: Record<string, string>, rootLen: number, rootTitle: string) => { valid: boolean; evidence?: string };
+}
+
+const HIGH_PRIORITY_PROBES: ProbeTarget[] = [
+  // 1. Version Control (Git & SVN)
+  {
+    path: '/.git/HEAD',
+    category: 'GIT_REPOSITORY',
+    severity: 'CRITICAL',
+    note: 'Exposed Git repository metadata',
+    validator: (s, t) => {
+      if (t.includes('ref: refs/') || (s === 200 && /^[a-f0-9]{40}\b/m.test(t.trim()))) {
+        return { valid: true, evidence: `Git HEAD commit pointer exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.git/config',
+    category: 'GIT_REPOSITORY',
+    severity: 'CRITICAL',
+    note: 'Exposed Git configuration & remote repository URLs',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('[core]') || t.includes('repositoryformatversion') || t.includes('[remote "origin"]'))) {
+        return { valid: true, evidence: `Git repository configuration exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.gitignore',
+    category: 'GIT_REPOSITORY',
+    severity: 'MEDIUM',
+    note: 'Exposed .gitignore reveals internal directory structure',
+    validator: (s, t, h, rootLen) => {
+      if (s === 200 && Math.abs(t.length - rootLen) > 30 && (t.includes('node_modules') || t.includes('.env') || t.includes('dist') || t.includes('*.log'))) {
+        return { valid: true, evidence: `Git exclusion rules exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.svn/entries',
+    category: 'SVN_REPOSITORY',
+    severity: 'HIGH',
+    note: 'Exposed SVN working copy metadata',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('svn:') || t.includes('dir\n') || /^\d+\s*$/m.test(t.slice(0, 20)))) {
+        return { valid: true, evidence: 'Exposed SVN repository entries file' };
+      }
+      return { valid: false };
+    }
+  },
+
+  // 2. Environment & Secrets
+  {
+    path: '/.env',
+    category: 'ENV_FILE',
+    severity: 'CRITICAL',
+    note: 'Production environment variables and secret tokens',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && (/^[A-Za-z0-9_]{2,}\s*=\s*.+/m.test(t) || /(SECRET|KEY|PASSWORD|PASS|TOKEN|DATABASE|PORT=|DB_|URL=|NODE_ENV|JWT|ADMIN)/i.test(t))) {
+        return { valid: true, evidence: `Plaintext environment variables exposed: "${t.slice(0, 100).replace(/\r?\n/g, ' ').trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.env.local',
+    category: 'ENV_FILE',
+    severity: 'CRITICAL',
+    note: 'Local environment configuration file',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && (/^[A-Za-z0-9_]{2,}\s*=\s*.+/m.test(t) || /(SECRET|KEY|PASSWORD|PASS|TOKEN|DATABASE|PORT=|DB_|URL=|JWT)/i.test(t))) {
+        return { valid: true, evidence: `Local environment variables exposed: "${t.slice(0, 100).replace(/\r?\n/g, ' ').trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.env.production',
+    category: 'ENV_FILE',
+    severity: 'CRITICAL',
+    note: 'Production environment configuration file',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && (/^[A-Za-z0-9_]{2,}\s*=\s*.+/m.test(t) || /(SECRET|KEY|PASSWORD|TOKEN|DATABASE|DB_|URL=)/i.test(t))) {
+        return { valid: true, evidence: `Production secrets exposed: "${t.slice(0, 100).replace(/\r?\n/g, ' ').trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.env.backup',
+    category: 'ENV_FILE',
+    severity: 'CRITICAL',
+    note: 'Backup environment variables file',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && (/^[A-Za-z0-9_]{2,}\s*=\s*.+/m.test(t) || /(SECRET|KEY|PASSWORD|TOKEN|DB_)/i.test(t))) {
+        return { valid: true, evidence: `Backup environment variables exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.env.example',
+    category: 'ENV_FILE',
+    severity: 'MEDIUM',
+    note: 'Example environment configuration schema',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && /^[A-Za-z0-9_]{2,}\s*=\s*.+/m.test(t)) {
+        return { valid: true, evidence: `Environment schema exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/config.env',
+    category: 'ENV_FILE',
+    severity: 'CRITICAL',
+    note: 'Configuration environment file',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && /^[A-Za-z0-9_]{2,}\s*=\s*.+/m.test(t)) {
+        return { valid: true, evidence: `Configuration environment variables: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/app.env',
+    category: 'ENV_FILE',
+    severity: 'CRITICAL',
+    note: 'Application environment file',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && /^[A-Za-z0-9_]{2,}\s*=\s*.+/m.test(t)) {
+        return { valid: true, evidence: `App environment exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+
+  // 3. Database Dumps & Backups
+  {
+    path: '/backup.sql',
+    category: 'DATABASE_DUMP',
+    severity: 'CRITICAL',
+    note: 'Plaintext SQL database dump file',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('CREATE TABLE') || t.includes('INSERT INTO') || t.includes('MySQL dump') || t.includes('PostgreSQL database dump'))) {
+        return { valid: true, evidence: `Database SQL dump exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/dump.sql',
+    category: 'DATABASE_DUMP',
+    severity: 'CRITICAL',
+    note: 'Database schema and data dump file',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('CREATE TABLE') || t.includes('INSERT INTO') || t.includes('MySQL dump'))) {
+        return { valid: true, evidence: `Database SQL dump exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/database.sql',
+    category: 'DATABASE_DUMP',
+    severity: 'CRITICAL',
+    note: 'Complete database export file',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('CREATE TABLE') || t.includes('INSERT INTO') || t.includes('MySQL dump'))) {
+        return { valid: true, evidence: `Database SQL export exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/db.sql',
+    category: 'DATABASE_DUMP',
+    severity: 'CRITICAL',
+    note: 'Database dump file',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('CREATE TABLE') || t.includes('INSERT INTO') || t.includes('MySQL dump'))) {
+        return { valid: true, evidence: `Database SQL dump exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/users.sql',
+    category: 'DATABASE_DUMP',
+    severity: 'CRITICAL',
+    note: 'User table database export',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('CREATE TABLE') || t.includes('INSERT INTO') || t.includes('users'))) {
+        return { valid: true, evidence: `User table export exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+
+  // 4. Server Configuration & Diagnostics
+  {
+    path: '/phpinfo.php',
+    category: 'INFO_DISCLOSURE',
+    severity: 'HIGH',
+    note: 'Exposes complete PHP environment & server module configuration',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('PHP Version') || t.includes('phpinfo()') || t.includes('Configuration File (php.ini)'))) {
+        return { valid: true, evidence: 'Public phpinfo() diagnostic page exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/info.php',
+    category: 'INFO_DISCLOSURE',
+    severity: 'HIGH',
+    note: 'PHP diagnostic information disclosure',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('PHP Version') || t.includes('phpinfo()'))) {
+        return { valid: true, evidence: 'Public phpinfo() diagnostic page exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/server-status',
+    category: 'INFO_DISCLOSURE',
+    severity: 'HIGH',
+    note: 'Apache HTTP Server status page',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('Apache Server Status') || t.includes('Server Version: Apache'))) {
+        return { valid: true, evidence: 'Apache mod_status live connection monitor exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/actuator/health',
+    category: 'SPRING_ACTUATOR',
+    severity: 'MEDIUM',
+    note: 'Spring Boot actuator health endpoint',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('"status":"UP"') || t.includes('"components":'))) {
+        return { valid: true, evidence: 'Spring Boot actuator health telemetry exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/actuator/env',
+    category: 'SPRING_ACTUATOR',
+    severity: 'CRITICAL',
+    note: 'Spring Boot actuator environment properties',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('"propertySources"') || t.includes('"activeProfiles"'))) {
+        return { valid: true, evidence: 'Spring Boot actuator environment secrets exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/actuator',
+    category: 'SPRING_ACTUATOR',
+    severity: 'HIGH',
+    note: 'Spring Boot management actuator root',
+    validator: (s, t) => {
+      if (s === 200 && t.includes('_links') && t.includes('actuator')) {
+        return { valid: true, evidence: 'Spring Boot management actuator endpoints exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/docker-compose.yml',
+    category: 'DOCKER_CONFIG',
+    severity: 'HIGH',
+    note: 'Docker container orchestration & service architecture',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('version:') || t.includes('services:')) && t.includes('image:')) {
+        return { valid: true, evidence: `Docker compose file exposed: "${t.slice(0, 100).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/Dockerfile',
+    category: 'DOCKER_CONFIG',
+    severity: 'MEDIUM',
+    note: 'Container build instructions',
+    validator: (s, t) => {
+      if (s === 200 && (/^FROM\s+[a-zA-Z0-9]/m.test(t) || t.includes('WORKDIR') || t.includes('ENTRYPOINT'))) {
+        return { valid: true, evidence: `Dockerfile exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/web.config',
+    category: 'SERVER_CONFIG',
+    severity: 'HIGH',
+    note: 'IIS server configuration',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('<configuration>') || t.includes('<system.webServer>'))) {
+        return { valid: true, evidence: 'IIS web.config XML exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.htaccess',
+    category: 'SERVER_CONFIG',
+    severity: 'HIGH',
+    note: 'Apache distributed configuration',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('RewriteEngine') || t.includes('RewriteRule') || t.includes('AuthType'))) {
+        return { valid: true, evidence: 'Apache .htaccess configuration exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.htpasswd',
+    category: 'SERVER_CONFIG',
+    severity: 'CRITICAL',
+    note: 'Apache HTTP basic authentication password hashes',
+    validator: (s, t) => {
+      if (s === 200 && /^[a-zA-Z0-9_-]+:\$[a-zA-Z0-9./]+/m.test(t)) {
+        return { valid: true, evidence: 'Apache .htpasswd credential hashes exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/config.json',
+    category: 'CONFIG_FILE',
+    severity: 'HIGH',
+    note: 'JSON configuration file',
+    validator: (s, t) => {
+      if (s === 200 && t.trim().startsWith('{') && (t.includes('database') || t.includes('api') || t.includes('host') || t.includes('port'))) {
+        return { valid: true, evidence: `JSON configuration exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/config.php.bak',
+    category: 'CONFIG_BACKUP',
+    severity: 'CRITICAL',
+    note: 'PHP database credentials backup',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('<?php') || t.includes('DB_PASSWORD') || t.includes('database'))) {
+        return { valid: true, evidence: 'Database config backup exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/wp-config.php.bak',
+    category: 'CONFIG_BACKUP',
+    severity: 'CRITICAL',
+    note: 'WordPress database credentials backup',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('DB_PASSWORD') || t.includes('DB_NAME') || t.includes('wp-config'))) {
+        return { valid: true, evidence: 'WordPress wp-config.php.bak credentials exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.DS_Store',
+    category: 'DS_STORE',
+    severity: 'MEDIUM',
+    note: 'macOS folder structure and file enumeration metadata',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('Bud1') || /^\x00\x00\x00\x01Bud1/.test(t) || t.length > 30)) {
+        return { valid: true, evidence: 'macOS .DS_Store file hierarchy metadata exposed' };
+      }
+      return { valid: false };
+    }
+  },
+
+  // 5. APIs & Documentation
+  {
+    path: '/swagger.json',
+    category: 'API_DOCS',
+    severity: 'MEDIUM',
+    note: 'Swagger / OpenAPI 2.0 API schema specification',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('"swagger":') || t.includes('"paths":'))) {
+        return { valid: true, evidence: 'Public Swagger REST API schema specification exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/openapi.json',
+    category: 'API_DOCS',
+    severity: 'MEDIUM',
+    note: 'OpenAPI 3.0 REST API schema specification',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('"openapi":') || t.includes('"paths":'))) {
+        return { valid: true, evidence: 'Public OpenAPI 3.0 API schema specification exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/api-docs',
+    category: 'API_DOCS',
+    severity: 'MEDIUM',
+    note: 'Interactive REST API documentation route',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('swagger') || t.includes('api-docs') || t.includes('redoc'))) {
+        return { valid: true, evidence: 'Public API documentation dashboard exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/swagger-ui.html',
+    category: 'API_DOCS',
+    severity: 'MEDIUM',
+    note: 'Interactive Swagger UI dashboard',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('swagger-ui') || t.includes('Swagger UI'))) {
+        return { valid: true, evidence: 'Interactive Swagger UI dashboard exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/graphql',
+    category: 'GRAPHQL_SCHEMA',
+    severity: 'HIGH',
+    note: 'GraphQL endpoint with schema introspection query support',
+    validator: (s, t) => {
+      if ((s === 200 || s === 400) && (t.includes('__schema') || t.includes('GraphQL') || t.includes('Must provide query string') || t.includes('query execution failed'))) {
+        return { valid: true, evidence: 'Public GraphQL endpoint with introspection available' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/api/graphql',
+    category: 'GRAPHQL_SCHEMA',
+    severity: 'HIGH',
+    note: 'Secondary GraphQL API endpoint',
+    validator: (s, t) => {
+      if ((s === 200 || s === 400) && (t.includes('__schema') || t.includes('GraphQL') || t.includes('Must provide query string'))) {
+        return { valid: true, evidence: 'Public GraphQL API endpoint exposed' };
+      }
+      return { valid: false };
+    }
+  },
+
+  // 6. Public Metadata & Recon
+  {
+    path: '/robots.txt',
+    category: 'ROBOTS_DISALLOW',
+    severity: 'INFO',
+    note: 'Web crawler access control policy',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('User-agent:') || t.includes('Disallow:') || t.includes('Allow:'))) {
+        const disallows = (t.match(/Disallow:\s*([^\r\n#]+)/gi) || []).length;
+        return { valid: true, evidence: `Cataloged ${disallows} disallowed paths` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/sitemap.xml',
+    category: 'SITEMAP_INDEX',
+    severity: 'INFO',
+    note: 'Search engine route index',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('<urlset') || t.includes('<sitemapindex') || t.includes('<loc>'))) {
+        return { valid: true, evidence: 'Public XML sitemap route index exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/.well-known/security.txt',
+    category: 'SECURITY_TXT',
+    severity: 'INFO',
+    note: 'RFC 9116 security contact disclosure',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('Contact:') || t.includes('Expires:') || t.includes('Preferred-Languages:'))) {
+        return { valid: true, evidence: 'RFC 9116 security disclosure published with contact info' };
+      }
+      return { valid: false };
+    }
+  },
+
+  // 7. Sensitive Files & CTF Vectors
+  {
+    path: '/secret.txt',
+    category: 'INFO_DISCLOSURE',
+    severity: 'HIGH',
+    note: 'Sensitive text file disclosure',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && t.trim().length > 0) {
+        return { valid: true, evidence: `Sensitive text file: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/flag.txt',
+    category: 'CTF_FLAG',
+    severity: 'CRITICAL',
+    note: 'CTF challenge flag file',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && t.trim().length > 0) {
+        return { valid: true, evidence: `Flag exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/passwords.txt',
+    category: 'CREDENTIALS',
+    severity: 'CRITICAL',
+    note: 'Plaintext passwords file',
+    validator: (s, t, h, rootLen, rootTitle) => {
+      if (s === 200 && !t.includes(rootTitle) && t.trim().length > 0) {
+        return { valid: true, evidence: `Password list exposed: "${t.slice(0, 80).trim()}"` };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/id_rsa',
+    category: 'SSH_KEY',
+    severity: 'CRITICAL',
+    note: 'Exposed SSH private key',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('BEGIN RSA PRIVATE KEY') || t.includes('BEGIN OPENSSH PRIVATE KEY'))) {
+        return { valid: true, evidence: 'Unencrypted SSH private key exposed' };
+      }
+      return { valid: false };
+    }
+  },
+  {
+    path: '/admin/',
+    category: 'ADMIN_PANEL',
+    severity: 'MEDIUM',
+    note: 'Administrative portal login or management console',
+    validator: (s, t) => {
+      if (s === 200 && (t.includes('admin') || t.includes('login') || t.includes('password') || t.includes('dashboard'))) {
+        return { valid: true, evidence: 'Administrative portal accessible' };
+      }
+      return { valid: false };
+    }
+  },
+];
+
 export default async function handler(req: any, res: any) {
   // CORS support
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,8 +688,12 @@ export default async function handler(req: any, res: any) {
 
   try {
     let clean = url.trim();
+
+    // Preserve protocol if specified, otherwise infer
     if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-      clean = 'https://' + clean;
+      const isLikelyHttp = /^(localhost|127\.|192\.168\.|10\.|0\.0\.0\.0)(:\d+)?/i.test(clean) ||
+        /:(80|8080|8888|3000|5000|8000|5173|4200|8008)(\/|$)/.test(clean);
+      clean = isLikelyHttp ? 'http://' + clean : 'https://' + clean;
     }
 
     let parsed: URL;
@@ -46,43 +704,60 @@ export default async function handler(req: any, res: any) {
     }
 
     const host = parsed.hostname.toLowerCase();
+    const isLocal = isLocalOrInternal(host);
     const isIp = net.isIP(host) !== 0;
-    const rootDomain = isIp ? host : host.split('.').slice(-2).join('.');
+    const rootDomain = (isLocal || isIp) ? host : host.split('.').slice(-2).join('.');
 
-    // 1. DNS Resolution
+    // 1. DNS Resolution (instant lookup for local/IPs, parallel race for public domains)
     const dnsRecords: OsintReconData['dns'] = {};
     let hostmasterEmail = '';
-    try {
-      if (!isIp) {
-        dnsRecords.a = await new Promise((resolve) => {
-          dns.resolve4(host, (err, addresses) => resolve(err ? [] : addresses));
-        });
-        dnsRecords.mx = await new Promise((resolve) => {
-          dns.resolveMx(host, (err, addresses) => resolve(err ? [] : addresses));
-        });
-        dnsRecords.txt = await new Promise((resolve) => {
-          dns.resolveTxt(host, (err, records) => resolve(err ? [] : records.flat()));
-        });
-        dnsRecords.ns = await new Promise((resolve) => {
-          dns.resolveNs(host, (err, addresses) => resolve(err ? [] : addresses));
-        });
+    let resolvedTargetIp = isIp ? host : 'Unknown';
 
-        // SOA lookup for admin/hostmaster email
-        try {
-          const soa = await new Promise<any>((resolve) => {
-            dns.resolveSoa(rootDomain, (err, record) => resolve(err ? null : record));
-          });
-          if (soa && soa.hostmaster) {
-            const hm = String(soa.hostmaster).replace(/\./, '@');
-            if (hm.includes('@') && !hm.endsWith('.')) {
-              hostmasterEmail = hm;
-            }
-          }
-        } catch {}
+    if (isLocal || isIp) {
+      try {
+        const lookupAddr = await new Promise<string>((resolve) => {
+          dns.lookup(host, (err, address) => resolve(err ? (isIp ? host : '127.0.0.1') : address));
+        });
+        resolvedTargetIp = lookupAddr;
+        dnsRecords.a = [lookupAddr];
+      } catch {
+        resolvedTargetIp = isIp ? host : '127.0.0.1';
+        dnsRecords.a = [resolvedTargetIp];
       }
-    } catch {}
+    } else {
+      // Public domain parallel DNS queries with strict 1500ms timeout
+      const dnsRace = (fn: (cb: (err: any, res: any) => void) => void, ms = 1500) => {
+        return Promise.race([
+          new Promise<any>((resolve) => fn((err, res) => resolve(err ? [] : res))),
+          new Promise<any>((resolve) => setTimeout(() => resolve([]), ms))
+        ]);
+      };
 
-    // 2. Fetch main page content with automatic HTTPS -> HTTP fallback
+      try {
+        const [aRecs, mxRecs, txtRecs, nsRecs, soaRec] = await Promise.all([
+          dnsRace(cb => dns.resolve4(host, cb)),
+          dnsRace(cb => dns.resolveMx(host, cb)),
+          dnsRace(cb => dns.resolveTxt(host, cb)),
+          dnsRace(cb => dns.resolveNs(host, cb)),
+          dnsRace(cb => dns.resolveSoa(rootDomain, cb)),
+        ]);
+
+        dnsRecords.a = Array.isArray(aRecs) ? aRecs : [];
+        if (dnsRecords.a.length > 0) resolvedTargetIp = dnsRecords.a[0];
+        dnsRecords.mx = Array.isArray(mxRecs) ? mxRecs : [];
+        dnsRecords.txt = Array.isArray(txtRecs) ? txtRecs.flat() : [];
+        dnsRecords.ns = Array.isArray(nsRecs) ? nsRecs : [];
+
+        if (soaRec && typeof soaRec === 'object' && soaRec.hostmaster) {
+          const hm = String(soaRec.hostmaster).replace(/\./, '@');
+          if (hm.includes('@') && !hm.endsWith('.')) {
+            hostmasterEmail = hm;
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Fetch main root page with fast HTTPS <-> HTTP fallback
     let html = '';
     let status = 200;
     let serverBanner = '';
@@ -90,14 +765,14 @@ export default async function handler(req: any, res: any) {
     let responseHeaders: Record<string, string> = {};
     let activeOrigin = parsed.origin;
 
-    const fetchPage = async (targetUrl: string) => {
+    const fetchPage = async (targetUrl: string, timeoutMs = 3500) => {
       const response = await fetch(targetUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 ZaksSpider/2.0',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
         redirect: 'follow',
-        signal: AbortSignal.timeout(7000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
       const hdrs: Record<string, string> = {};
@@ -125,23 +800,22 @@ export default async function handler(req: any, res: any) {
       html = pageResult.body;
       activeOrigin = new URL(pageResult.finalUrl).origin;
     } catch (err: any) {
-      // If HTTPS failed (e.g. port 443 refused/timeout), retry on HTTP
-      if (clean.startsWith('https://')) {
-        const httpFallback = clean.replace(/^https:\/\//, 'http://');
-        try {
-          const fallbackResult = await fetchPage(httpFallback);
-          status = fallbackResult.status;
-          serverBanner = fallbackResult.server;
-          contentType = fallbackResult.contentType;
-          responseHeaders = fallbackResult.headers;
-          html = fallbackResult.body;
-          activeOrigin = new URL(fallbackResult.finalUrl).origin;
-          clean = httpFallback;
-        } catch (fbErr: any) {
-          html = `Fetch failed: ${err.message}; Fallback failed: ${fbErr.message}`;
-        }
-      } else {
-        html = `Fetch failed: ${err.message}`;
+      // Instant fallback to alternate protocol
+      const alternate = clean.startsWith('https://') 
+        ? clean.replace(/^https:\/\//, 'http://')
+        : clean.replace(/^http:\/\//, 'https://');
+
+      try {
+        const fallbackResult = await fetchPage(alternate);
+        status = fallbackResult.status;
+        serverBanner = fallbackResult.server;
+        contentType = fallbackResult.contentType;
+        responseHeaders = fallbackResult.headers;
+        html = fallbackResult.body;
+        activeOrigin = new URL(fallbackResult.finalUrl).origin;
+        clean = alternate;
+      } catch (fbErr: any) {
+        html = `Fetch failed: ${err.message}; Fallback failed: ${fbErr.message}`;
       }
     }
 
@@ -150,46 +824,12 @@ export default async function handler(req: any, res: any) {
     const title = titleMatch ? titleMatch[1].trim() : `${host} - Endpoint`;
     const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
     const description = descMatch ? descMatch[1].trim() : 'No meta description detected.';
+    const rootLen = html.length;
 
-    // 4. Extract emails (Plain text, mailto links, Cloudflare de-obfuscation)
+    // 4. Multi-Source Email Harvesting
     const emailSet = new Set<string>();
-    const emailMatches = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-    for (const em of emailMatches) {
-      const c = em.toLowerCase().trim();
-      if (!c.match(/\.(png|jpg|jpeg|gif|svg|webp|css|js|ico|woff|woff2|ttf)$/i)) {
-        emailSet.add(c);
-      }
-    }
-
-    // Mailto links
-    const mailtoMatches = html.matchAll(/href=["']mailto:([^"'\s?#]+)/gi);
-    for (const m of mailtoMatches) {
-      const em = m[1].toLowerCase().trim();
-      if (em.includes('@') && !em.match(/\.(png|jpg|jpeg|gif|svg|webp|css|js)$/i)) {
-        emailSet.add(em);
-      }
-    }
-
-    // Cloudflare email decode
-    const cfMatches = [
-      ...html.matchAll(/data-cfemail=["']([a-f0-9]+)["']/gi),
-      ...html.matchAll(/\/cdn-cgi\/l\/email-protection#([a-f0-9]+)/gi),
-    ];
-    for (const m of cfMatches) {
-      try {
-        const hex = m[1];
-        const k = parseInt(hex.substring(0, 2), 16);
-        let dec = '';
-        for (let i = 2; i < hex.length; i += 2) {
-          dec += String.fromCharCode(parseInt(hex.substr(i, 2), 16) ^ k);
-        }
-        if (dec.includes('@')) emailSet.add(dec.toLowerCase().trim());
-      } catch {}
-    }
-
-    if (hostmasterEmail) {
-      emailSet.add(hostmasterEmail.toLowerCase());
-    }
+    harvestEmailsFromText(html).forEach(e => emailSet.add(e));
+    if (hostmasterEmail) emailSet.add(hostmasterEmail.toLowerCase());
 
     // 5. Extract links & routes from HTML
     const internalLinks = new Set<string>();
@@ -200,7 +840,7 @@ export default async function handler(req: any, res: any) {
       if (link.startsWith('http://') || link.startsWith('https://')) {
         try {
           const u = new URL(link);
-          if (u.hostname.includes(rootDomain)) {
+          if (u.hostname.includes(rootDomain) || u.hostname === host) {
             internalLinks.add(link);
           } else {
             externalLinks.add(link);
@@ -211,15 +851,26 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 6. Subdomain discovery via crt.sh
+    // Deep Crawl for secondary contact pages (e.g. /contact, /about)
+    const secondaryRoutesToCheck = ['/contact', '/contact-us', '/about', '/about-us', '/team', '/support'];
+    for (const secRoute of secondaryRoutesToCheck) {
+      try {
+        const secRes = await fetchPage(`${activeOrigin}${secRoute}`, 2000);
+        if (secRes.status === 200 && secRes.body) {
+          harvestEmailsFromText(secRes.body).forEach(e => emailSet.add(e));
+        }
+      } catch {}
+    }
+
+    // 6. Subdomain discovery via crt.sh (for public domains)
     const subdomains = new Set<string>();
-    if (!isIp) {
+    if (!isLocal && !isIp) {
       subdomains.add(`www.${rootDomain}`);
       subdomains.add(`api.${rootDomain}`);
       subdomains.add(`mail.${rootDomain}`);
       try {
         const crtRes = await fetch(`https://crt.sh/?q=%25.${encodeURIComponent(rootDomain)}&output=json`, {
-          signal: AbortSignal.timeout(4000),
+          signal: AbortSignal.timeout(3500),
         });
         if (crtRes.ok) {
           const entries = (await crtRes.json()) as any[];
@@ -245,7 +896,7 @@ export default async function handler(req: any, res: any) {
     try {
       const robotsRes = await fetch(`${activeOrigin}/robots.txt`, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZaksSpider/2.0' },
-        signal: AbortSignal.timeout(3500)
+        signal: AbortSignal.timeout(2500)
       });
       if (robotsRes.ok) {
         const robText = await robotsRes.text();
@@ -258,8 +909,7 @@ export default async function handler(req: any, res: any) {
         robotsTxtData.sitemaps = sitemaps;
 
         // Extract emails in robots comments
-        const robEmails = robText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-        robEmails.forEach(e => emailSet.add(e.toLowerCase().trim()));
+        harvestEmailsFromText(robText).forEach(e => emailSet.add(e));
 
         sensitiveFiles.push({
           path: '/robots.txt',
@@ -272,13 +922,13 @@ export default async function handler(req: any, res: any) {
       }
     } catch {}
 
-    // Probe B: /.well-known/security.txt (RFC 9116)
+    // Probe B: /.well-known/security.txt
     try {
-      const secRes = await fetch(`${activeOrigin}/.well-known/security.txt`, { signal: AbortSignal.timeout(3000) });
+      const secRes = await fetch(`${activeOrigin}/.well-known/security.txt`, { signal: AbortSignal.timeout(2500) });
       if (secRes.ok) {
         const secText = await secRes.text();
-        const secEmails = secText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-        secEmails.forEach(e => emailSet.add(e.toLowerCase().trim()));
+        const secEmails = harvestEmailsFromText(secText);
+        secEmails.forEach(e => emailSet.add(e));
 
         sensitiveFiles.push({
           path: '/.well-known/security.txt',
@@ -291,33 +941,60 @@ export default async function handler(req: any, res: any) {
       }
     } catch {}
 
-    // Probe C: Sensitive Probes (Git, Env, Swagger, GraphQL)
-    const probeList = [
-      { path: '/.git/HEAD', check: (txt: string, s: number) => txt.includes('ref: refs/heads/') || (s === 200 && txt.trim().length === 41), note: 'Exposed Git repository metadata' },
-      { path: '/.env', check: (txt: string, s: number) => s === 200 && (txt.includes('DB_') || txt.includes('KEY=') || txt.includes('SECRET=')), note: 'Plaintext environment variables' },
-      { path: '/sitemap.xml', check: (_txt: string, s: number) => s === 200, note: 'Indexed sitemap routes' },
-      { path: '/swagger.json', check: (txt: string, s: number) => s === 200 && (txt.includes('swagger') || txt.includes('openapi')), note: 'Public Swagger/OpenAPI definition' },
-      { path: '/graphql', check: (txt: string, s: number) => s === 200 && txt.includes('__schema'), note: 'GraphQL schema introspection' },
-      { path: '/.DS_Store', check: (_txt: string, s: number) => s === 200, note: 'macOS folder structure metadata' },
-    ];
+    // Probe C: Concurrent 45+ Sensitive File Wordlist Probing
+    const probeBatchSize = 6;
+    for (let i = 0; i < HIGH_PRIORITY_PROBES.length; i += probeBatchSize) {
+      const batch = HIGH_PRIORITY_PROBES.slice(i, i + probeBatchSize);
+      await Promise.all(
+        batch.map(async (probe) => {
+          // Avoid duplicate check if robots or security already added
+          if (probe.path === '/robots.txt' || probe.path === '/.well-known/security.txt') return;
 
-    for (const p of probeList) {
-      try {
-        const res = await fetch(`${activeOrigin}${p.path}`, { signal: AbortSignal.timeout(2500) });
-        if (res.ok) {
-          const txt = await res.text();
-          if (p.check(txt, res.status)) {
-            sensitiveFiles.push({
-              path: p.path,
-              url: `${activeOrigin}${p.path}`,
-              status: res.status,
-              source: 'heuristic',
-              interesting: true,
-              notes: p.note,
+          try {
+            const probeRes = await fetch(`${activeOrigin}${probe.path}`, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZaksSpider/2.0' },
+              signal: AbortSignal.timeout(2000),
             });
-          }
-        }
-      } catch {}
+
+            const probeText = await probeRes.text();
+            const hdrs: Record<string, string> = {};
+            probeRes.headers.forEach((v, k) => { hdrs[k.toLowerCase()] = v; });
+
+            // Extract any emails discovered inside probe bodies (e.g. database dumps, env configs)
+            if (probeRes.status === 200 && probeText.length > 0) {
+              harvestEmailsFromText(probeText).forEach(e => emailSet.add(e));
+            }
+
+            // Check 403 Forbidden (confirms protected existence on disk)
+            if (probeRes.status === 403 || probeRes.status === 401) {
+              if (probe.category === 'GIT_REPOSITORY' || probe.category === 'ENV_FILE' || probe.category === 'ADMIN_PANEL' || probe.category === 'SERVER_CONFIG') {
+                sensitiveFiles.push({
+                  path: probe.path,
+                  url: `${activeOrigin}${probe.path}`,
+                  status: probeRes.status,
+                  source: 'heuristic',
+                  interesting: true,
+                  notes: `HTTP ${probeRes.status} Forbidden: Protected sensitive asset exists on server`,
+                });
+              }
+              return;
+            }
+
+            // Run validator
+            const checkResult = probe.validator(probeRes.status, probeText, hdrs, rootLen, title);
+            if (checkResult.valid) {
+              sensitiveFiles.push({
+                path: probe.path,
+                url: `${activeOrigin}${probe.path}`,
+                status: probeRes.status,
+                source: 'heuristic',
+                interesting: true,
+                notes: checkResult.evidence || probe.note,
+              });
+            }
+          } catch {}
+        })
+      );
     }
 
     // 8. Security Headers Audit
@@ -350,7 +1027,7 @@ export default async function handler(req: any, res: any) {
       osint: {
         root_domain: rootDomain,
         is_ip: isIp,
-        target_ip: dnsRecords.a?.[0] || (isIp ? host : 'Unknown'),
+        target_ip: resolvedTargetIp,
         dns: dnsRecords,
         robots_txt: robotsTxtData,
         sensitive_files: sensitiveFiles,
