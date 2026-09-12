@@ -193,15 +193,15 @@ export const TacticalOpticsShader: React.FC<TacticalOpticsShaderProps> = ({
           </div>
 
           {/* Geographic Coordinates & Grid */}
-          <div className="text-[10px] space-y-0.5 font-mono bg-black/60 p-2 rounded border border-cyan-500/20 max-w-xs">
-            <div className="flex items-center gap-2 text-slate-300">
+          <div className="text-[10px] space-y-0.5 font-mono bg-black/80 p-1.5 rounded-none border border-neutral-800 max-w-xs shadow-lg">
+            <div className="flex items-center gap-2 text-neutral-300">
               <span className="text-cyan-400 font-bold">LAT/LON:</span>
               <span>{coords[0].toFixed(5)}°, {coords[1].toFixed(5)}°</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-400">
+            <div className="flex items-center gap-2 text-neutral-400">
               <span className="text-cyan-400 font-bold">MGRS:</span>
               <span>{formatMgrs(coords[0], coords[1])}</span>
-              <span className="text-slate-600">|</span>
+              <span className="text-neutral-600">|</span>
               <span>ELEV: {elevationM}m MSL</span>
             </div>
           </div>
@@ -209,15 +209,15 @@ export const TacticalOpticsShader: React.FC<TacticalOpticsShaderProps> = ({
       )}
 
       {/* ----------------------------------------------------
-          6. PERSISTENT OPTICS SELECTOR CONTROLS (ALWAYS INTERACTIVE)
+          6. PERSISTENT OPTICS SELECTOR CONTROLS (ALWAYS INTERACTIVE, BOTTOM-LEFT)
           ---------------------------------------------------- */}
-      <div className="pointer-events-auto absolute bottom-3 right-3 z-40 flex items-center gap-1.5 bg-slate-950/90 border border-cyan-500/40 rounded-2xl p-1 shadow-2xl backdrop-blur-md font-mono">
+      <div className="pointer-events-auto absolute bottom-3 left-3 z-40 flex items-center gap-1 bg-black/90 border border-neutral-800 rounded-none p-1 shadow-2xl backdrop-blur-md font-mono">
         <button
           onClick={() => onModeChange('NORMAL')}
-          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+          className={`px-2 py-0.5 rounded-none text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
             mode === 'NORMAL'
-              ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(0,240,255,0.6)]'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              ? 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(0,240,255,0.6)]'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
           }`}
           title="Normal Satellite View (Hotkey 1)"
         >
@@ -227,10 +227,10 @@ export const TacticalOpticsShader: React.FC<TacticalOpticsShaderProps> = ({
 
         <button
           onClick={() => onModeChange('FLIR_THERMAL')}
-          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+          className={`px-2 py-0.5 rounded-none text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
             mode === 'FLIR_THERMAL'
-              ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-amber-400 text-white shadow-[0_0_15px_rgba(236,72,153,0.7)]'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-amber-400 text-white shadow-[0_0_10px_rgba(236,72,153,0.7)]'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
           }`}
           title="FLIR Ironbow Thermal View (Hotkey 2)"
         >
@@ -240,10 +240,10 @@ export const TacticalOpticsShader: React.FC<TacticalOpticsShaderProps> = ({
 
         <button
           onClick={() => onModeChange('NVG_NIGHT_VISION')}
-          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+          className={`px-2 py-0.5 rounded-none text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
             mode === 'NVG_NIGHT_VISION'
-              ? 'bg-emerald-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.8)]'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.8)]'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
           }`}
           title="Night Vision Goggles (Hotkey 3)"
         >
@@ -253,10 +253,10 @@ export const TacticalOpticsShader: React.FC<TacticalOpticsShaderProps> = ({
 
         <button
           onClick={() => onModeChange('CRT_RECON')}
-          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+          className={`px-2 py-0.5 rounded-none text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
             mode === 'CRT_RECON'
-              ? 'bg-amber-500 text-black shadow-[0_0_12px_rgba(245,158,11,0.7)]'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              ? 'bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.7)]'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
           }`}
           title="CRT Surveillance Feed (Hotkey 4)"
         >
@@ -266,10 +266,10 @@ export const TacticalOpticsShader: React.FC<TacticalOpticsShaderProps> = ({
 
         <button
           onClick={() => onModeChange('MIL_SPEC_HUD')}
-          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+          className={`px-2 py-0.5 rounded-none text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
             mode === 'MIL_SPEC_HUD'
-              ? 'bg-purple-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.7)]'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+              ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(168,85,247,0.7)]'
+              : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
           }`}
           title="Mil-Spec Tactical HUD (Hotkey 5 or H)"
         >

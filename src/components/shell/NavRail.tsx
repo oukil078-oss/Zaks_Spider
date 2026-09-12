@@ -4,7 +4,7 @@ import {
   Share2, Wifi, Database, Cpu, Radio, UserCheck, 
   MapPin, PhoneCall, FileText, Search, AtSign, Key,
   Flame, Layers, ShieldCheck, Activity, ChevronLeft, ChevronRight,
-  Scissors, Lock, FileCode
+  Scissors, Lock, FileCode, Camera
 } from 'lucide-react';
 import { MainHubId } from '../../types';
 
@@ -44,14 +44,15 @@ export const NavRail: React.FC<NavRailProps> = ({
         ];
       case 'forensics':
         return [
+          { id: 'memory', label: 'Memory & Process Tree', icon: <Cpu className="w-4 h-4 text-purple-400" /> },
+          { id: 'pcap', label: 'PCAP & JA3 Protocol', icon: <Wifi className="w-4 h-4 text-indigo-400" /> },
+          { id: 'evtx', label: 'EVTX Threat Hunter', icon: <ShieldAlert className="w-4 h-4 text-rose-400" /> },
+          { id: 'evidence', label: 'Evidence & Hasher', icon: <Lock className="w-4 h-4 text-emerald-400" /> },
+          { id: 'exif', label: 'EXIF & Steg Inspector', icon: <Camera className="w-4 h-4 text-amber-400" /> },
           { id: 'defanger', label: 'IOC Defanger', icon: <Scissors className="w-4 h-4 text-blue-400" /> },
-          { id: 'evidence', label: 'Evidence Locker', icon: <Lock className="w-4 h-4 text-emerald-400" /> },
-          { id: 'gods-eye', label: "Global GEOINT 3D", icon: <Globe2 className="w-4 h-4 text-cyan-400" /> },
-          { id: 'username', label: 'Sherlock OSINT', icon: <Search className="w-4 h-4" /> },
-          { id: 'name', label: 'Subject & Dorks', icon: <AtSign className="w-4 h-4" /> },
-          { id: 'phone', label: 'Phone Forensics', icon: <PhoneCall className="w-4 h-4" /> },
-          { id: 'gis', label: 'GIS & Wilayas', icon: <MapPin className="w-4 h-4" /> },
-          { id: 'dossier', label: 'Intelligence Dossier', icon: <FileText className="w-4 h-4" /> },
+          { id: 'username', label: 'Sherlock OSINT', icon: <Search className="w-4 h-4 text-slate-300" /> },
+          { id: 'gis', label: 'GIS & Wilayas', icon: <MapPin className="w-4 h-4 text-teal-400" /> },
+          { id: 'dossier', label: 'Intelligence Dossier', icon: <FileText className="w-4 h-4 text-cyan-400" /> },
         ];
       case 'vuln-news':
         return [
@@ -86,29 +87,29 @@ export const NavRail: React.FC<NavRailProps> = ({
 
   return (
     <aside 
-      className={`flex flex-col justify-between py-2 rounded-lg bg-[#0b101b] border border-slate-800/80 shrink-0 select-none transition-all duration-200 ${
-        isExpanded ? 'w-48 px-2' : 'w-12 px-1'
+      className={`flex flex-col justify-between py-2 rounded-none bg-[#000000] border border-neutral-800 shrink-0 select-none font-mono transition-all duration-150 ${
+        isExpanded ? 'w-48 px-2' : 'w-11 px-1'
       }`}
     >
       <div className="flex flex-col gap-2">
         {/* Header with expand/collapse toggle */}
-        <div className={`flex items-center pb-2 border-b border-slate-800/80 ${isExpanded ? 'justify-between px-1' : 'justify-center'}`}>
+        <div className={`flex items-center pb-2 border-b border-neutral-800 ${isExpanded ? 'justify-between px-1' : 'justify-center'}`}>
           {isExpanded && (
-            <span className="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">
+            <span className="text-[10px] font-mono font-bold tracking-wider text-neutral-400 uppercase">
               {getHubTitle()}
             </span>
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             title={isExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
-            className="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 transition-colors cursor-pointer"
+            className="w-6 h-6 flex items-center justify-center rounded-none text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900 border border-transparent hover:border-neutral-700 transition-colors cursor-pointer"
           >
             {isExpanded ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
           </button>
         </div>
 
         {/* Dynamic Nav Pips */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5">
           {pips.map((pip) => {
             const isActive = activeSubCategory === pip.id;
             return (
@@ -116,27 +117,27 @@ export const NavRail: React.FC<NavRailProps> = ({
                 key={pip.id}
                 onClick={() => onSelectSubCategory(pip.id)}
                 title={!isExpanded ? pip.label : undefined}
-                className={`relative group flex items-center rounded-md text-xs transition-colors cursor-pointer ${
-                  isExpanded ? 'px-2.5 py-2 gap-2.5 text-left' : 'w-9 h-9 mx-auto justify-center'
+                className={`relative group flex items-center rounded-none text-xs transition-colors cursor-pointer font-mono ${
+                  isExpanded ? 'px-2 py-1.5 gap-2 text-left' : 'w-8 h-8 mx-auto justify-center'
                 } ${
                   isActive
-                    ? 'bg-blue-600/15 border border-blue-500/40 text-white font-medium shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent'
+                    ? 'bg-neutral-900 border-l-2 border-cyan-400 text-cyan-300 font-semibold'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-l-2 border-transparent'
                 }`}
               >
-                <span className={isActive ? 'text-blue-400' : 'text-slate-400'}>
+                <span className={isActive ? 'text-cyan-400' : 'text-neutral-400'}>
                   {pip.icon}
                 </span>
 
                 {isExpanded && (
-                  <span className="truncate flex-1 font-sans text-xs">
+                  <span className="truncate flex-1 font-mono text-[11px]">
                     {pip.label}
                   </span>
                 )}
 
                 {/* Subtle active pip indicator */}
                 {isActive && !isExpanded && (
-                  <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-3.5 bg-blue-500 rounded-r" />
+                  <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-0.5 h-3 bg-cyan-400" />
                 )}
               </button>
             );
@@ -145,14 +146,14 @@ export const NavRail: React.FC<NavRailProps> = ({
       </div>
 
       {/* Bottom Status Indicator */}
-      <div className={`pt-2 border-t border-slate-800/80 flex items-center ${isExpanded ? 'justify-between px-2 text-[10px] font-mono text-slate-500' : 'justify-center'}`}>
+      <div className={`pt-2 border-t border-neutral-800 flex items-center ${isExpanded ? 'justify-between px-1.5 text-[9px] font-mono text-neutral-500' : 'justify-center'}`}>
         {isExpanded ? (
           <>
-            <span>NODE NOMINAL</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>NODE ONLINE</span>
+            <span className="w-1.5 h-1.5 rounded-none bg-emerald-400 animate-pulse" />
           </>
         ) : (
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Telemetry Node Nominal" />
+          <div className="w-1.5 h-1.5 rounded-none bg-emerald-400" title="Node Online" />
         )}
       </div>
     </aside>

@@ -102,6 +102,7 @@ export const GodsEyeCockpit: React.FC<GodsEyeCockpitProps> = ({
 
   // Sidebar Tabs: 'LAYERS' | 'CCTV' | 'TELEMETRY'
   const [sidebarTab, setSidebarTab] = useState<'LAYERS' | 'CCTV' | 'TELEMETRY'>('LAYERS');
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   // Cluster Density & Virtual PTZ State
   const [showDensityOverlay, setShowDensityOverlay] = useState<boolean>(false);
@@ -469,163 +470,129 @@ export const GodsEyeCockpit: React.FC<GodsEyeCockpitProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full bg-[#070b14] overflow-hidden flex flex-col font-mono select-none">
+    <div className="relative w-full h-full bg-black overflow-hidden flex flex-col font-mono select-none">
       {/* ----------------------------------------------------
-          TOP GEOINT CONTROL RIBBON
+          TOP SLIM GEOINT CONTROL RIBBON (36px)
           ---------------------------------------------------- */}
-      <div className="h-13 border-b border-cyan-500/20 bg-[#090e1a]/95 px-4 flex items-center justify-between z-30 shadow-md gap-3">
-        {/* Left: Branding & Status */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="p-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.4)]">
-            <Globe className="w-5 h-5 animate-spin-slow" />
-          </div>
-          <div>
-            <div className="text-xs font-black tracking-widest text-cyan-200 flex items-center gap-2">
-              <span>GEOINT STATION // 3D VIEWSHED</span>
-              <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[9px] border border-emerald-500/40 font-bold">
-                6,950+ SENSORS ACTIVE
-              </span>
-            </div>
-            <div className="text-[10px] text-slate-400">
-              WGS84 SATELLITE & VERIFIED OPEN CAMERA GRID
-            </div>
-          </div>
-        </div>
-
-        {/* Center: 3D Mesh Engine Provider Tabs (Prominent at Top) */}
-        {viewMode === 'CESIUM_3D' && (
-          <div className="flex items-center bg-black/70 p-1 rounded-xl border border-cyan-500/40 text-xs shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-            <span className="text-[9px] text-cyan-400 font-bold px-2 uppercase tracking-wider hidden lg:inline">
-              3D MESH ENGINE:
+      <div className="h-9 border-b border-neutral-800 bg-black px-2.5 flex items-center justify-between z-30 gap-2 shrink-0 text-xs">
+        {/* Left: Branding & 3D Mesh Engine Provider Tabs */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 text-cyan-400 font-bold tracking-wider">
+            <Globe className="w-3.5 h-3.5" />
+            <span className="text-[11px] uppercase hidden sm:inline">GEOINT 3D</span>
+            <span className="text-[9px] px-1 py-0.2 rounded-none bg-neutral-900 border border-neutral-800 text-neutral-400 font-mono">
+              6.9k+ NODES
             </span>
-
-            <button
-              onClick={() => {
-                setTilesetMode('GOOGLE_3D');
-                localStorage.setItem('geoint_tileset_mode', 'GOOGLE_3D');
-                if (!googleApiKey && !cesiumIonToken) {
-                  setShowEngineModal(true);
-                }
-              }}
-              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                tilesetMode === 'GOOGLE_3D'
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-black shadow-[0_0_15px_rgba(245,158,11,0.6)]'
-                  : 'text-amber-400/80 hover:text-amber-300 hover:bg-amber-950/40'
-              }`}
-              title="Google Photorealistic 3D Tiles (The Viral Video Look)"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>GOOGLE 3D TILES</span>
-              {tilesetMode === 'GOOGLE_3D' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
-              )}
-            </button>
-
-            <button
-              onClick={() => {
-                setTilesetMode('OSM_3D');
-                localStorage.setItem('geoint_tileset_mode', 'OSM_3D');
-              }}
-              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                tilesetMode === 'OSM_3D'
-                  ? 'bg-sky-500 text-black shadow-[0_0_12px_rgba(56,189,248,0.6)]'
-                  : 'text-sky-400/80 hover:text-sky-300 hover:bg-sky-950/40'
-              }`}
-              title="OpenStreetMap 3D Extruded Buildings"
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>OSM 3D BUILDINGS</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setTilesetMode('SATELLITE');
-                localStorage.setItem('geoint_tileset_mode', 'SATELLITE');
-              }}
-              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                tilesetMode === 'SATELLITE'
-                  ? 'bg-emerald-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.6)]'
-                  : 'text-emerald-400/80 hover:text-emerald-300 hover:bg-emerald-950/40'
-              }`}
-              title="High-Resolution Satellite Photography (Keyless Default)"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>ESRI SATELLITE</span>
-            </button>
-
-            <button
-              onClick={() => setShowEngineModal(true)}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-amber-300 transition-colors ml-0.5"
-              title="Configure Google Maps API Key or Cesium Ion Token"
-            >
-              <Key className="w-3.5 h-3.5" />
-            </button>
           </div>
-        )}
 
-        {/* Right: Search + Mode Switcher + Refresh */}
-        <div className="flex items-center gap-2">
-          {/* Active Boundary Badge (if locked) */}
-          {highlightedBoundary && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-950/90 border border-cyan-400/60 text-[11px] text-cyan-300 font-mono shadow-[0_0_12px_rgba(6,182,212,0.4)] animate-in fade-in">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              <span className="font-bold text-cyan-200">
-                {highlightedBoundary.name} {highlightedBoundary.code ? `(#${highlightedBoundary.code})` : ''}
-              </span>
+          <div className="h-4 w-[1px] bg-neutral-800 hidden md:block" />
+
+          {/* Compact Engine Selector */}
+          {viewMode === 'CESIUM_3D' && (
+            <div className="flex items-center bg-neutral-950 p-0.5 rounded-none border border-neutral-800 text-[10px]">
               <button
-                onClick={() => setHighlightedBoundary(null)}
-                className="hover:text-white ml-1 text-slate-400 text-xs px-1"
-                title="Clear Boundary Outline"
+                onClick={() => {
+                  setTilesetMode('SATELLITE');
+                  localStorage.setItem('geoint_tileset_mode', 'SATELLITE');
+                }}
+                className={`px-2 py-0.5 rounded-none font-bold transition-all cursor-pointer ${
+                  tilesetMode === 'SATELLITE'
+                    ? 'bg-neutral-800 text-emerald-400 border-b border-emerald-400'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="Keyless ESRI Satellite"
               >
-                ✕
+                SATELLITE
+              </button>
+              <button
+                onClick={() => {
+                  setTilesetMode('OSM_3D');
+                  localStorage.setItem('geoint_tileset_mode', 'OSM_3D');
+                }}
+                className={`px-2 py-0.5 rounded-none font-bold transition-all cursor-pointer ${
+                  tilesetMode === 'OSM_3D'
+                    ? 'bg-neutral-800 text-sky-400 border-b border-sky-400'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="OpenStreetMap 3D Buildings"
+              >
+                OSM 3D
+              </button>
+              <button
+                onClick={() => {
+                  setTilesetMode('GOOGLE_3D');
+                  localStorage.setItem('geoint_tileset_mode', 'GOOGLE_3D');
+                  if (!googleApiKey && !cesiumIonToken) setShowEngineModal(true);
+                }}
+                className={`px-2 py-0.5 rounded-none font-bold transition-all cursor-pointer ${
+                  tilesetMode === 'GOOGLE_3D'
+                    ? 'bg-neutral-800 text-amber-400 border-b border-amber-400'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="Google Photorealistic 3D Tiles"
+              >
+                GOOGLE 3D
+              </button>
+              <button
+                onClick={() => setShowEngineModal(true)}
+                className="px-1.5 py-0.5 text-neutral-500 hover:text-amber-300"
+                title="API Credentials"
+              >
+                <Key className="w-3 h-3" />
               </button>
             </div>
           )}
+        </div>
 
-          {/* Quick Search with Real-Time IP Geolocation & Global Boundary Lookup */}
-          <div className="flex items-center relative w-48 sm:w-64">
+        {/* Center: Search & Boundary */}
+        <div className="flex items-center gap-1.5 flex-1 max-w-sm justify-center">
+          {highlightedBoundary && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-none bg-neutral-900 border border-cyan-500/60 text-[10px] text-cyan-300">
+              <span className="w-1.5 h-1.5 rounded-none bg-cyan-400 animate-pulse" />
+              <span className="truncate max-w-[100px]">{highlightedBoundary.name}</span>
+              <button onClick={() => setHighlightedBoundary(null)} className="text-neutral-400 hover:text-white ml-0.5">✕</button>
+            </div>
+          )}
+          <div className="relative w-full max-w-xs">
             {isGeolocating ? (
-              <Loader2 className="w-3.5 h-3.5 text-rose-400 absolute left-2.5 top-1/2 -translate-y-1/2 animate-spin" />
+              <Loader2 className="w-3 h-3 text-rose-400 absolute left-2 top-1/2 -translate-y-1/2 animate-spin" />
             ) : (
-              <Search className="w-3.5 h-3.5 text-cyan-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3 h-3 text-neutral-500 absolute left-2 top-1/2 -translate-y-1/2" />
             )}
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCorrelate(searchQuery)}
-              placeholder="Search Wilaya, City, Country, IP..."
-              className="w-full pl-8 pr-2 py-1 bg-black/70 border border-cyan-500/40 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 placeholder:text-slate-500 font-mono shadow-inner"
+              placeholder="Search Wilaya, City, IP, Callsign..."
+              className="w-full pl-6 pr-2 py-0.5 bg-neutral-950 border border-neutral-800 rounded-none text-xs text-neutral-200 focus:outline-none focus:border-cyan-500 font-mono placeholder:text-neutral-600"
             />
           </div>
+        </div>
 
-          {/* Mode Tabs */}
-          <div className="flex items-center bg-black/50 p-1 rounded-xl border border-cyan-500/30 text-xs">
+        {/* Right: View Modes + Density + Refresh + Toggle Sensors Dock */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center bg-neutral-950 p-0.5 rounded-none border border-neutral-800 text-[10px]">
             <button
               onClick={() => setViewMode('CESIUM_3D')}
-              className={`px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-2 py-0.5 font-bold transition-all rounded-none cursor-pointer ${
                 viewMode === 'CESIUM_3D'
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-black shadow-[0_0_12px_#00f0ff]'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-neutral-800 text-cyan-300 border-b border-cyan-400'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <Globe className="w-3.5 h-3.5" />
-              <span>REAL 3D GLOBE</span>
-              <span className="px-1 py-0.2 rounded bg-cyan-400 text-black text-[9px] font-black">CESIUM</span>
+              3D GLOBE
             </button>
-
             <button
               onClick={() => setViewMode('2D_RADAR')}
-              className={`px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-2 py-0.5 font-bold transition-all rounded-none cursor-pointer ${
                 viewMode === '2D_RADAR'
-                  ? 'bg-cyan-500 text-black shadow-[0_0_10px_#00f0ff]'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-neutral-800 text-cyan-300 border-b border-cyan-400'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <Crosshair className="w-3.5 h-3.5" />
-              <span>RADAR MAP</span>
+              2D RADAR
             </button>
-
             <button
               onClick={() => {
                 if (!selectedFlight) {
@@ -634,39 +601,51 @@ export const GodsEyeCockpit: React.FC<GodsEyeCockpitProps> = ({
                 }
                 setViewMode('COCKPIT');
               }}
-              className={`px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-2 py-0.5 font-bold transition-all rounded-none cursor-pointer ${
                 viewMode === 'COCKPIT'
-                  ? 'bg-emerald-500 text-black shadow-[0_0_10px_#10b981]'
-                  : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
+                  ? 'bg-neutral-800 text-emerald-400 border-b border-emerald-400'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <Plane className="w-3.5 h-3.5 animate-pulse" />
-              <span>COCKPIT HUD</span>
+              COCKPIT
             </button>
           </div>
 
-          {/* Cluster Density Heatmap Toggle */}
+          {/* Density Heatmap Toggle */}
           <button
             onClick={() => setShowDensityOverlay(!showDensityOverlay)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+            className={`px-2 py-0.5 rounded-none text-[10px] font-mono border transition-all cursor-pointer ${
               showDensityOverlay
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
-                : 'bg-black/50 text-slate-400 border-cyan-500/30 hover:text-slate-200'
+                ? 'bg-amber-950/60 text-amber-300 border-amber-500'
+                : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-neutral-200'
             }`}
-            title="Toggle Regional Surveillance Cluster Density Matrix"
+            title="Regional Surveillance Density Matrix"
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">Density Heatmap</span>
+            DENSITY
           </button>
 
           {/* Refresh Button */}
           <button
             onClick={fetchTelemetry}
             disabled={isRefreshing}
-            className="p-1.5 rounded-lg bg-black/50 hover:bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-xs flex items-center gap-1 transition-colors"
-            title="Refresh Live Public Telemetry"
+            className="p-1 rounded-none bg-neutral-950 hover:bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-cyan-400 text-xs cursor-pointer"
+            title="Refresh Live Telemetry"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
+          </button>
+
+          {/* Slide Sensors Dock Toggle */}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className={`px-2 py-0.5 rounded-none font-mono text-[10px] font-bold flex items-center gap-1 transition-all border cursor-pointer ${
+              isSidebarOpen
+                ? 'bg-cyan-950/80 border-cyan-500 text-cyan-300'
+                : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:text-white'
+            }`}
+            title="Toggle Sensor Feeds Dock"
+          >
+            <Layers className="w-3 h-3" />
+            <span>{isSidebarOpen ? 'DOCK ✕' : 'FEEDS ▶'}</span>
           </button>
         </div>
       </div>
@@ -1191,48 +1170,77 @@ export const GodsEyeCockpit: React.FC<GodsEyeCockpitProps> = ({
           </TacticalOpticsShader>
         </div>
 
+        {/* Floating Right-Edge Drawer Pull Tab when sidebar is collapsed */}
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-30 bg-black/90 hover:bg-neutral-900 border-l-2 border-y border-neutral-800 border-l-cyan-400 text-cyan-400 hover:text-cyan-200 px-1 py-3 text-[9px] font-mono cursor-pointer shadow-2xl tracking-widest flex flex-col items-center gap-1 transition-all"
+            title="Open Sensor & Feeds Drawer"
+          >
+            <span>F</span>
+            <span>E</span>
+            <span>E</span>
+            <span>D</span>
+            <span>S</span>
+            <span className="text-[8px] text-neutral-400">◀</span>
+          </button>
+        )}
+
         {/* ----------------------------------------------------
-            RIGHT TACTICAL SIDEBAR (LAYERS, CCTV, TELEMETRY)
+            RIGHT TACTICAL SIDEBAR (LAYERS, CCTV, TELEMETRY) - COLLAPSIBLE
             ---------------------------------------------------- */}
-        <div className="w-80 border-l border-cyan-500/20 bg-[#0a0f1b] flex flex-col z-20">
-          {/* Sidebar Navigation Tabs */}
-          <div className="grid grid-cols-3 border-b border-cyan-500/20 bg-[#0d1424] text-[11px] font-bold">
-            <button
-              onClick={() => setSidebarTab('LAYERS')}
-              className={`py-2.5 flex items-center justify-center gap-1.5 transition-colors ${
-                sidebarTab === 'LAYERS'
-                  ? 'border-b-2 border-cyan-400 text-cyan-300 bg-cyan-950/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>LAYERS</span>
-            </button>
+        {isSidebarOpen && (
+          <div className="w-80 border-l border-neutral-800 bg-[#050505] flex flex-col z-20 font-mono animate-in slide-in-from-right-2 duration-150">
+            {/* Header with Close Tab */}
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-neutral-800 bg-black text-[10px]">
+              <span className="font-bold text-cyan-400 tracking-wider">TACTICAL SENSOR DOCK</span>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="text-neutral-400 hover:text-white px-1 py-0.5 rounded-none hover:bg-neutral-900 text-xs cursor-pointer"
+                title="Collapse Dock"
+              >
+                ✕
+              </button>
+            </div>
 
-            <button
-              onClick={() => setSidebarTab('CCTV')}
-              className={`py-2.5 flex items-center justify-center gap-1.5 transition-colors ${
-                sidebarTab === 'CCTV'
-                  ? 'border-b-2 border-cyan-400 text-cyan-300 bg-cyan-950/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <span>CCTV</span>
-            </button>
+            {/* Sidebar Navigation Tabs */}
+            <div className="grid grid-cols-3 border-b border-neutral-800 bg-black text-[11px] font-bold">
+              <button
+                onClick={() => setSidebarTab('LAYERS')}
+                className={`py-2 flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                  sidebarTab === 'LAYERS'
+                    ? 'border-b-2 border-cyan-400 text-cyan-300 bg-neutral-900'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>LAYERS</span>
+              </button>
 
-            <button
-              onClick={() => setSidebarTab('TELEMETRY')}
-              className={`py-2.5 flex items-center justify-center gap-1.5 transition-colors ${
-                sidebarTab === 'TELEMETRY'
-                  ? 'border-b-2 border-cyan-400 text-cyan-300 bg-cyan-950/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5" />
-              <span>DOSSIER</span>
-            </button>
-          </div>
+              <button
+                onClick={() => setSidebarTab('CCTV')}
+                className={`py-2 flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                  sidebarTab === 'CCTV'
+                    ? 'border-b-2 border-cyan-400 text-cyan-300 bg-neutral-900'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>CCTV</span>
+              </button>
+
+              <button
+                onClick={() => setSidebarTab('TELEMETRY')}
+                className={`py-2 flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                  sidebarTab === 'TELEMETRY'
+                    ? 'border-b-2 border-cyan-400 text-cyan-300 bg-neutral-900'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>DOSSIER</span>
+              </button>
+            </div>
 
           {/* TAB 1: LAYERS CONTROL MATRIX */}
           {sidebarTab === 'LAYERS' && (
@@ -1552,15 +1560,16 @@ export const GodsEyeCockpit: React.FC<GodsEyeCockpitProps> = ({
               {onPivotToSoc && (
                 <button
                   onClick={() => onPivotToSoc('GEOINT-CORRELATED-NODE', initialTargetIp)}
-                  className="w-full py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+                  className="w-full py-2 rounded-none bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-cyan-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <Cpu className="w-4 h-4" />
+                  <Cpu className="w-4 h-4 text-cyan-400" />
                   <span>PIVOT TO SOC LAB & AI SWARM</span>
                 </button>
               )}
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* ----------------------------------------------------

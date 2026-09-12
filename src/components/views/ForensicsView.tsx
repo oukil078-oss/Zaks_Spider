@@ -4,14 +4,34 @@ import {
   ExternalLink, CheckCircle2, XCircle, Loader2, Download, 
   UserCheck, AlertTriangle, FileText, MapPin, Share2, Compass, Layers, 
   Copy, Check, Mail, Building, AtSign, ArrowUpRight, Crosshair, Printer, KeyRound,
-  Lock, Scissors, Plus, Trash2, Shield, RefreshCw, FileCode, CheckSquare, Sparkles, Filter
+  Lock, Scissors, Plus, Trash2, Shield, RefreshCw, FileCode, CheckSquare, Sparkles, Filter,
+  Cpu, Wifi, Camera
 } from 'lucide-react';
 import { UsernamePlatformDef, UsernameCheckResult } from '../../types';
 import { AlgeriaGisMap } from '../gis/AlgeriaGisMap';
 import { GodsEyeCockpit } from '../geoint/GodsEyeCockpit';
+import { MemoryForensicsLab } from '../forensics/MemoryForensicsLab';
+import { PcapForensicsAnalyzer } from '../forensics/PcapForensicsAnalyzer';
+import { EvtxThreatHunter } from '../forensics/EvtxThreatHunter';
+import { EvidenceVaultManager } from '../forensics/EvidenceVaultManager';
+import { ExifMetadataInspector } from '../forensics/ExifMetadataInspector';
+
+export type ForensicsTab = 
+  | 'memory'
+  | 'pcap'
+  | 'evtx'
+  | 'evidence'
+  | 'exif'
+  | 'defanger'
+  | 'username'
+  | 'name'
+  | 'phone'
+  | 'gis'
+  | 'dossier'
+  | 'gods-eye';
 
 export interface ForensicsViewProps {
-  initialTab?: 'defanger' | 'evidence' | 'username' | 'name' | 'phone' | 'gis' | 'dossier' | 'gods-eye';
+  initialTab?: ForensicsTab;
 }
 
 export interface ExtractedIoc {
@@ -172,8 +192,8 @@ const PLATFORMS_52: UsernamePlatformDef[] = [
   { id: 'proton', name: 'Proton Verified', category: 'Developer', urlPattern: 'https://{username}.anonaddy.me', icon: 'Lock', description: 'Encrypted alias routing' },
 ];
 
-export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'defanger' }) => {
-  const [activeTab, setActiveTab] = useState<'defanger' | 'evidence' | 'username' | 'name' | 'phone' | 'gis' | 'dossier' | 'gods-eye'>(initialTab);
+export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'memory' }) => {
+  const [activeTab, setActiveTab] = useState<ForensicsTab>(initialTab);
   const [query, setQuery] = useState('cyber_operator');
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -507,125 +527,190 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'defa
   const foundCount = results.filter((r) => r.status === 'found').length;
 
   return (
-    <div className="flex-1 w-full h-full flex flex-col overflow-hidden font-sans text-slate-200">
+    <div className="flex-1 w-full h-full flex flex-col overflow-hidden font-mono text-neutral-200 bg-[#000000]">
       {/* Sub-tab Navigation Rail */}
-      <div className="px-4 py-2 bg-[#090e18] border-b border-slate-800/80 flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs">
+      <div className="px-3 py-1.5 bg-[#000000] border-b border-neutral-800 flex items-center justify-between gap-2 shrink-0 select-none">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-xs">
           <button
-            onClick={() => setActiveTab('defanger')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'defanger'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            onClick={() => setActiveTab('memory')}
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'memory'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
             }`}
           >
-            <Scissors className="w-3.5 h-3.5 text-blue-400" />
-            <span>IOC Defanger & Normalizer</span>
-            <span className="text-[9px] px-1 py-0.2 rounded bg-blue-900/40 text-blue-300 font-mono">
+            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+            <span>MEMORY & PROCS</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pcap')}
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'pcap'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
+            }`}
+          >
+            <Wifi className="w-3.5 h-3.5 text-blue-400" />
+            <span>PCAP & JA3</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('evtx')}
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'evtx'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5 text-amber-400" />
+            <span>EVTX HUNTER</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('evidence')}
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'evidence'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5 text-emerald-400" />
+            <span>EVIDENCE VAULT</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('exif')}
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'exif'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5 text-pink-400" />
+            <span>EXIF & STEGO</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-neutral-800 mx-1 shrink-0" />
+
+          <button
+            onClick={() => setActiveTab('defanger')}
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'defanger'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
+            }`}
+          >
+            <Scissors className="w-3.5 h-3.5 text-purple-400" />
+            <span>IOC DEFANGER</span>
+            <span className="text-[9px] px-1 py-0.2 rounded-none bg-neutral-800 text-purple-300 font-mono">
               {extractedIocs.length}
             </span>
           </button>
 
           <button
-            onClick={() => setActiveTab('evidence')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'evidence'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Evidence Locker & Custody</span>
-            <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-900/40 text-emerald-300 font-mono">
-              {evidenceVault.length}
-            </span>
-          </button>
-
-          <div className="h-4 w-[1px] bg-slate-800 mx-1" />
-
-          <button
             onClick={() => setActiveTab('username')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'username'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
             }`}
           >
-            <Search className="w-3.5 h-3.5 text-purple-400" />
-            <span>Sherlock 52-Platform</span>
+            <Search className="w-3.5 h-3.5 text-teal-400" />
+            <span>SHERLOCK 52</span>
           </button>
 
           <button
             onClick={() => setActiveTab('name')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'name'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
             }`}
           >
-            <AtSign className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Target OSINT & Dorks</span>
+            <AtSign className="w-3.5 h-3.5 text-blue-400" />
+            <span>TARGET OSINT</span>
           </button>
 
           <button
             onClick={() => setActiveTab('phone')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'phone'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
             }`}
           >
-            <PhoneCall className="w-3.5 h-3.5 text-teal-400" />
-            <span>Phone Forensics</span>
+            <PhoneCall className="w-3.5 h-3.5 text-emerald-400" />
+            <span>PHONE INTEL</span>
           </button>
 
           <button
             onClick={() => setActiveTab('gis')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'gis'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
             }`}
           >
             <MapPin className="w-3.5 h-3.5 text-amber-400" />
-            <span>GIS & Wilayas</span>
+            <span>GIS WILAYAS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('dossier')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'dossier'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                ? 'bg-neutral-900 border-neutral-700 text-white font-bold'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-950 border-transparent'
             }`}
           >
             <FileText className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Dossier Audit</span>
+            <span>DOSSIER</span>
           </button>
 
           <button
             onClick={() => setActiveTab('gods-eye')}
-            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'gods-eye'
-                ? 'bg-slate-800 text-cyan-300 font-semibold border border-cyan-500/30'
-                : 'text-cyan-400 hover:text-cyan-200 hover:bg-slate-900/60'
+                ? 'bg-neutral-900 border-cyan-500/50 text-cyan-300 font-bold'
+                : 'text-cyan-400 hover:text-cyan-200 hover:bg-neutral-950 border-transparent'
             }`}
           >
             <Globe className="w-3.5 h-3.5 text-cyan-400" />
-            <span>3D GEOINT Cockpit</span>
+            <span>3D GEOINT</span>
           </button>
         </div>
 
-        <div className="text-[11px] text-slate-400 font-mono hidden sm:flex items-center gap-2 shrink-0">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span>DFIR MATRIX ONLINE</span>
+        <div className="text-[11px] text-neutral-400 font-mono hidden sm:flex items-center gap-2 shrink-0">
+          <span className="w-1.5 h-1.5 bg-emerald-400 animate-pulse" />
+          <span>DFIR MATRIX // READY</span>
         </div>
       </div>
 
       {/* Content Area */}
       {activeTab === 'gods-eye' ? (
-        <div className="flex-1 w-full h-full overflow-hidden bg-[#070b13]">
+        <div className="flex-1 w-full h-full overflow-hidden bg-black">
           <GodsEyeCockpit initialTargetIp={ipAddress} />
+        </div>
+      ) : activeTab === 'memory' ? (
+        <div className="flex-1 w-full h-full overflow-hidden bg-black">
+          <MemoryForensicsLab />
+        </div>
+      ) : activeTab === 'pcap' ? (
+        <div className="flex-1 w-full h-full overflow-hidden bg-black">
+          <PcapForensicsAnalyzer />
+        </div>
+      ) : activeTab === 'evtx' ? (
+        <div className="flex-1 w-full h-full overflow-hidden bg-black">
+          <EvtxThreatHunter />
+        </div>
+      ) : activeTab === 'evidence' ? (
+        <div className="flex-1 w-full h-full overflow-hidden bg-black">
+          <EvidenceVaultManager />
+        </div>
+      ) : activeTab === 'exif' ? (
+        <div className="flex-1 w-full h-full overflow-hidden bg-black">
+          <ExifMetadataInspector onPivotToGodsEye={(lat, lon) => { setActiveTab('gods-eye'); }} />
         </div>
       ) : (
         <>
@@ -757,151 +842,6 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'defa
                 </div>
               )}
 
-              {/* --- TAB 2: EVIDENCE CHAIN-OF-CUSTODY LOCKER --- */}
-              {activeTab === 'evidence' && (
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
-                  {/* Evidence Vault Header & Action Bar */}
-                  <div className="p-3 border-b border-slate-800 bg-[#090e18] flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-emerald-400" />
-                      <span className="font-semibold text-white font-mono">
-                        CRYPTOGRAPHIC EVIDENCE REPOSITORY & CHAIN-OF-CUSTODY
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => setNewEvidenceModal(true)}
-                      className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Register Evidence Artifact</span>
-                    </button>
-                  </div>
-
-                  {/* Evidence Artifacts Table */}
-                  <div className="flex-1 overflow-y-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead className="bg-[#090e18] text-slate-400 border-b border-slate-800 sticky top-0 z-10 font-mono text-[11px]">
-                        <tr>
-                          <th className="py-2.5 px-3">EVIDENCE ID</th>
-                          <th className="py-2.5 px-3">ARTIFACT NAME</th>
-                          <th className="py-2.5 px-3">CATEGORY</th>
-                          <th className="py-2.5 px-3">SIZE</th>
-                          <th className="py-2.5 px-3">SHA-256 HASH</th>
-                          <th className="py-2.5 px-3">ACQUIRED</th>
-                          <th className="py-2.5 px-3 text-right">INTEGRITY</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60 font-mono">
-                        {evidenceVault.map((art) => {
-                          const isSelected = selectedEvidence?.id === art.id;
-                          const isVerified = verifiedArtifactIds.has(art.id);
-                          const isVerifying = isVerifyingId === art.id;
-
-                          return (
-                            <tr
-                              key={art.id}
-                              onClick={() => setSelectedEvidence(art)}
-                              className={`cursor-pointer transition-colors ${
-                                isSelected
-                                  ? 'bg-blue-600/10'
-                                  : 'hover:bg-slate-900/40'
-                              }`}
-                            >
-                              <td className="py-2.5 px-3 font-semibold text-blue-400">
-                                {art.id}
-                              </td>
-                              <td className="py-2.5 px-3 font-medium text-white max-w-[180px] truncate">
-                                {art.name}
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">
-                                  {art.category}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-slate-400 text-[11px]">
-                                {art.size}
-                              </td>
-                              <td className="py-2.5 px-3 text-slate-300 font-mono text-[11px]">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="truncate max-w-[120px]">{art.sha256}</span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigator.clipboard.writeText(art.sha256);
-                                      alert('SHA-256 copied');
-                                    }}
-                                    className="text-slate-500 hover:text-white p-0.5"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3 text-slate-400 text-[10px] truncate max-w-[120px]">
-                                {art.acquiredAt}
-                              </td>
-                              <td className="py-2.5 px-3 text-right">
-                                {isVerifying ? (
-                                  <span className="text-amber-400 text-[10px] animate-pulse">
-                                    CALCULATING...
-                                  </span>
-                                ) : isVerified ? (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800/60">
-                                    <ShieldCheck className="w-2.5 h-2.5" />
-                                    SEALED
-                                  </span>
-                                ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleVerifyEvidence(art);
-                                    }}
-                                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]"
-                                  >
-                                    Verify Hash
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Selected Evidence Inspector Panel */}
-                  {selectedEvidence && (
-                    <div className="p-3 border-t border-slate-800 bg-[#080d17] text-xs">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 font-mono">
-                          <span className="text-slate-400">SELECTED ARTIFACT:</span>
-                          <span className="font-bold text-white">{selectedEvidence.name}</span>
-                          <span className="text-slate-600">//</span>
-                          <span className="text-blue-400">{selectedEvidence.id}</span>
-                        </div>
-                        <button
-                          onClick={() => handleVerifyEvidence(selectedEvidence)}
-                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <RefreshCw className="w-3 h-3 text-emerald-400" />
-                          <span>Re-Verify Integrity Seal</span>
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 font-mono text-[11px]">
-                        <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
-                          <div className="text-slate-500 text-[10px]">CUSTODIAN & STATION</div>
-                          <div className="text-slate-200 mt-0.5">{selectedEvidence.custodian}</div>
-                        </div>
-                        <div className="p-2 rounded bg-slate-900/60 border border-slate-800 md:col-span-2">
-                          <div className="text-slate-500 text-[10px]">PROVENANCE & METHODOLOGY</div>
-                          <div className="text-slate-300 mt-0.5">{selectedEvidence.notes}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
           {/* 1. Sherlock 52-Platform View */}
           {activeTab === 'username' && (
             <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -1541,100 +1481,6 @@ export const ForensicsView: React.FC<ForensicsViewProps> = ({ initialTab = 'defa
                         </div>
                       </div>
                     ))
-                )}
-              </div>
-            </div>
-          ) : activeTab === 'evidence' ? (
-            /* --- EVIDENCE RIGHT DECK: CHAIN-OF-CUSTODY AUDIT LEDGER --- */
-            <div className="flex-1 flex flex-col h-full overflow-hidden">
-              <div className="p-3 border-b border-slate-800 bg-[#090e18] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-semibold text-white font-mono">
-                    CHAIN OF CUSTODY VERIFICATION
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!selectedEvidence) return;
-                    const cert = `CERTIFICATE OF FORENSIC CHAIN-OF-CUSTODY
-=====================================================
-CASE REFERENCE : CASE-2026-DFIR-${selectedEvidence.id}
-ARTIFACT NAME  : ${selectedEvidence.name}
-CATEGORY       : ${selectedEvidence.category}
-FILE SIZE      : ${selectedEvidence.size}
-ACQUISITION    : ${selectedEvidence.acquiredAt}
-CUSTODIAN      : ${selectedEvidence.custodian}
-SHA-256 DIGEST : ${selectedEvidence.sha256}
-STATUS         : CRYPTOGRAPHICALLY VALIDATED & SEALED
-=====================================================
-Acquisition conducted under ISO/IEC 27037:2012 guidelines.`;
-                    const blob = new Blob([cert], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `CHAIN-OF-CUSTODY-${selectedEvidence.id}.txt`;
-                    a.click();
-                  }}
-                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <Download className="w-3 h-3 text-emerald-400" />
-                  <span>Certificate</span>
-                </button>
-              </div>
-
-              <div className="flex-1 p-3 space-y-3 overflow-y-auto text-xs font-mono">
-                {selectedEvidence ? (
-                  <>
-                    <div className="p-2.5 rounded bg-[#070b13] border border-slate-800 space-y-2">
-                      <div className="text-slate-400 text-[10px]">IMMUTABLE AUDIT LOG</div>
-                      <div className="text-emerald-400 font-bold flex items-center gap-1.5 text-[11px]">
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>SHA-256 INTEGRITY CONFIRMED</span>
-                      </div>
-                      <div className="p-1.5 rounded bg-black/60 border border-slate-800 text-[10px] text-slate-300 break-all">
-                        {selectedEvidence.sha256}
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded bg-[#070b13] border border-slate-800 space-y-2">
-                      <div className="text-slate-400 text-[10px]">FORENSIC CUSTODY TIMELINE</div>
-                      <div className="space-y-1.5 text-[11px]">
-                        <div className="flex items-start gap-2 text-slate-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1 shrink-0" />
-                          <div>
-                            <span className="text-white font-semibold">Triage Acquisition:</span> {selectedEvidence.acquiredAt}
-                            <div className="text-[10px] text-slate-500">Hardware write-blocker attached; physical bitstream clone.</div>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2 text-slate-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1 shrink-0" />
-                          <div>
-                            <span className="text-white font-semibold">Cryptographic Hashing:</span> SHA-256 digest calculated
-                            <div className="text-[10px] text-slate-500">Hash matched ledger verification register.</div>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2 text-slate-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1 shrink-0" />
-                          <div>
-                            <span className="text-white font-semibold">SecOps Storage:</span> Air-gapped vault safe
-                            <div className="text-[10px] text-slate-500">{selectedEvidence.custodian}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded bg-emerald-950/20 border border-emerald-800/40 text-[11px] text-emerald-300">
-                      <div className="font-semibold mb-0.5">ISO/IEC 27037 Standard Compliant</div>
-                      <div className="text-[10px] text-slate-400">
-                        Evidence maintains complete evidentiary integrity suitable for criminal and enterprise regulatory proceedings.
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded">
-                    Select an evidence artifact from the ledger to view custody audit details.
-                  </div>
                 )}
               </div>
             </div>

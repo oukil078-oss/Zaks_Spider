@@ -47,7 +47,7 @@ export const App: React.FC = () => {
     } else if (hub === 'pentest') {
       setActiveSubCategory('ALL');
     } else if (hub === 'forensics') {
-      setActiveSubCategory('username');
+      setActiveSubCategory('memory');
     } else if (hub === 'soc') {
       setActiveSubCategory('globe');
     } else if (hub === 'vuln-news') {
@@ -123,7 +123,7 @@ export const App: React.FC = () => {
       />
 
       {/* 2. Main Workbench Stage Layout (NavRail on Left + Full-Height Active View on Right) */}
-      <div className="flex-1 w-full flex items-stretch gap-2.5 overflow-hidden">
+      <div className="flex-1 w-full flex items-stretch gap-1.5 overflow-hidden">
         {/* Left Collapsible Navigation Rail */}
         <NavRail
           activeHub={activeHub}
@@ -132,7 +132,7 @@ export const App: React.FC = () => {
         />
 
         {/* Center Stage & Primary Viewport */}
-        <main className="flex-1 h-full overflow-hidden flex flex-col bg-[#0b101b] border border-slate-800/80 rounded-lg">
+        <main className="flex-1 h-full overflow-hidden flex flex-col bg-[#000000] border border-neutral-800 rounded-none">
           {activeHub === 'soc' && (
             <SocView
               activeSubSection={activeSubCategory}

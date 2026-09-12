@@ -90,69 +90,69 @@ export const TopBar: React.FC<TopBarProps> = ({
   ];
 
   return (
-    <header className="w-full flex items-center justify-between px-3 py-2 bg-[#0b101b] border border-slate-800/80 rounded-lg shrink-0 gap-3 select-none">
+    <header className="w-full flex items-center justify-between px-3 py-1.5 bg-[#000000] border border-neutral-800 rounded-none shrink-0 gap-3 select-none font-mono">
       {/* Left: Brand Identity & Active Status */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-slate-900 border border-slate-700/70 text-blue-400">
-            <Shield className="w-4 h-4 text-blue-400 stroke-[2.2]" />
+          <div className="flex items-center justify-center w-7 h-7 rounded-none bg-neutral-950 border border-neutral-700 text-cyan-400">
+            <Shield className="w-4 h-4 text-cyan-400 stroke-[2.2]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold tracking-wider text-slate-100 uppercase">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold tracking-wider text-neutral-100 uppercase">
                 Spider SecOps
               </span>
-              <span className="px-1.5 py-0.2 text-[10px] font-mono rounded bg-slate-800 text-slate-400 border border-slate-700">
+              <span className="px-1 py-0.2 text-[9px] font-mono rounded-none bg-neutral-900 text-neutral-400 border border-neutral-700">
                 PROD
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-400">
+              <span className="w-1.5 h-1.5 rounded-none bg-emerald-400 animate-pulse" />
               <span>FEEDS NOMINAL</span>
             </div>
           </div>
         </div>
 
-        <div className="h-5 w-[1px] bg-slate-800 hidden sm:block" />
+        <div className="h-5 w-[1px] bg-neutral-800 hidden sm:block" />
 
         {/* Global Omnibar Trigger Button */}
         <button
           onClick={onOpenCommandPalette}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#080d17] border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-colors text-xs cursor-pointer w-64 justify-between"
+          className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-none bg-neutral-950 border border-neutral-800 hover:border-neutral-600 text-neutral-400 hover:text-neutral-200 transition-colors text-xs cursor-pointer w-60 justify-between"
         >
           <div className="flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-slate-400 font-sans">Quick search or command...</span>
+            <Search className="w-3.5 h-3.5 text-neutral-500" />
+            <span className="text-neutral-400 font-mono text-[11px]">Omni search...</span>
           </div>
-          <kbd className="flex items-center text-[10px] font-mono bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700 text-slate-400">
+          <kbd className="flex items-center text-[9px] font-mono bg-neutral-900 px-1 py-0.2 rounded-none border border-neutral-700 text-neutral-400">
             Ctrl+K
           </kbd>
         </button>
       </div>
 
-      {/* Center: Clean Enterprise Workspace Navigation */}
-      <nav className="flex items-center gap-1 bg-[#070b13] p-1 rounded-md border border-slate-800/80">
+      {/* Center: Clean Straight Terminal Workspace Navigation */}
+      <nav className="flex items-center gap-0.5 bg-neutral-950 p-0.5 rounded-none border border-neutral-800">
         {hubs.map((hub) => {
           const isActive = activeHub === hub.id;
           return (
             <button
               key={hub.id}
               onClick={() => onSelectHub(hub.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono transition-all cursor-pointer rounded-none ${
                 isActive
-                  ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 border border-transparent'
+                  ? 'bg-neutral-800 text-cyan-300 font-semibold border-b-2 border-cyan-400 shadow-sm'
+                  : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900 border-b-2 border-transparent'
               }`}
             >
-              <span className={isActive ? 'text-blue-400' : 'text-slate-500'}>
+              <span className={isActive ? 'text-cyan-400' : 'text-neutral-500'}>
                 {hub.icon}
               </span>
               <span>{hub.label}</span>
               <span
-                className={`text-[9px] px-1.5 py-0.2 rounded font-mono hidden lg:inline ${
+                className={`text-[9px] px-1 py-0.2 rounded-none font-mono hidden lg:inline ${
                   isActive
-                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
-                    : 'bg-slate-900 text-slate-500'
+                    ? 'bg-cyan-950/60 text-cyan-300 border border-cyan-500/40'
+                    : 'bg-neutral-900 text-neutral-500'
                 }`}
               >
                 {hub.badge}
@@ -163,17 +163,17 @@ export const TopBar: React.FC<TopBarProps> = ({
       </nav>
 
       {/* Right: Operational Launchers & UTC Time */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         {/* Global GEOINT 3D Cockpit Toggle */}
         {onOpenGodsEye && (
           <button
             onClick={onOpenGodsEye}
             title="Open Global GEOINT 3D Viewshed & Live Camera Network"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0e1626] border border-slate-700/80 hover:border-slate-600 text-slate-200 hover:text-white text-xs font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-none bg-neutral-950 border border-neutral-700 hover:border-emerald-500 text-neutral-200 hover:text-white text-xs font-mono transition-colors cursor-pointer"
           >
             <Globe className="w-3.5 h-3.5 text-emerald-400" />
             <span className="hidden xl:inline">Global GEOINT</span>
-            <span className="text-[10px] font-mono px-1 rounded bg-slate-800 text-emerald-400 border border-slate-700">
+            <span className="text-[9px] font-mono px-1 rounded-none bg-neutral-900 text-emerald-400 border border-neutral-700">
               6.9k+
             </span>
           </button>
@@ -184,12 +184,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onOpenAiSwarm}
             title="Launch Multi-Agent SOC Threat Swarm"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0e1626] border border-slate-700/80 hover:border-slate-600 text-slate-200 hover:text-white text-xs font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-none bg-neutral-950 border border-neutral-700 hover:border-cyan-500 text-neutral-200 hover:text-white text-xs font-mono transition-colors cursor-pointer"
           >
-            <Bot className="w-3.5 h-3.5 text-blue-400" />
+            <Bot className="w-3.5 h-3.5 text-cyan-400" />
             <span className="hidden xl:inline">AI Swarm</span>
-            <span className="text-[10px] font-mono px-1 rounded bg-blue-950 text-blue-400 border border-blue-800/60">
-              Active
+            <span className="text-[9px] font-mono px-1 rounded-none bg-neutral-900 text-cyan-400 border border-neutral-700">
+              ACTIVE
             </span>
           </button>
         )}
@@ -198,18 +198,18 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => setIsCaseModalOpen(true)}
           title="Active Investigation Case Session & Target Pin"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0e1626] border border-cyan-500/30 hover:border-cyan-400 text-slate-200 hover:text-white text-xs font-medium transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-none bg-neutral-950 border border-cyan-500/50 hover:border-cyan-400 text-neutral-200 hover:text-white text-xs font-mono transition-colors cursor-pointer"
         >
           <Briefcase className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="hidden xl:inline text-slate-300">Case Pin:</span>
-          <span className="text-[10px] font-mono px-1 rounded bg-blue-950 text-cyan-300 border border-blue-800/60 max-w-[110px] truncate">
+          <span className="hidden xl:inline text-neutral-400">PIN:</span>
+          <span className="text-[9px] font-mono px-1 rounded-none bg-neutral-900 text-cyan-300 border border-neutral-700 max-w-[100px] truncate">
             {pinnedTarget}
           </span>
         </button>
 
         {/* UTC Clock Capsule */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-900/80 border border-slate-800 text-slate-300 font-mono text-[11px]">
-          <Clock className="w-3 h-3 text-slate-400" />
+        <div className="flex items-center gap-1 px-2 py-1 rounded-none bg-neutral-950 border border-neutral-800 text-neutral-300 font-mono text-[11px]">
+          <Clock className="w-3 h-3 text-neutral-500" />
           <span>{currentTime || 'SYNCING...'}</span>
         </div>
 
@@ -218,7 +218,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onOpenHotkeys}
             title="Keyboard Shortcuts & Hotkeys Reference (?)"
-            className="p-1.5 rounded-md bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            className="p-1 rounded-none bg-neutral-950 hover:bg-neutral-900 border border-neutral-800 hover:border-neutral-600 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
           >
             <HelpCircle className="w-3.5 h-3.5" />
           </button>
@@ -229,7 +229,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onOpenSettings}
             title="Workstation Preferences & Ingestion Settings"
-            className="p-1.5 rounded-md bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            className="p-1 rounded-none bg-neutral-950 hover:bg-neutral-900 border border-neutral-800 hover:border-neutral-600 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
           >
             <Settings className="w-3.5 h-3.5" />
           </button>
