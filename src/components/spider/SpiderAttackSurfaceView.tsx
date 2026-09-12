@@ -3,7 +3,8 @@ import {
   Globe, Search, RefreshCw, ShieldAlert, AlertTriangle, 
   CheckCircle2, ExternalLink, Download, Layers, Server, 
   Code2, Key, Shield, Filter, Copy, Check, ChevronRight,
-  Database, Terminal, ArrowUpRight, Cpu, Mail, FileText, X, Play
+  Database, Terminal, ArrowUpRight, Cpu, Mail, FileText, X, Play,
+  Zap, Info, CheckCircle, XCircle
 } from 'lucide-react';
 
 export interface DiscoveredAsset {
@@ -31,10 +32,296 @@ export interface HarvestedEmail {
   source: string;
 }
 
+export interface DetectedTechnology {
+  name: string;
+  category: string;
+  confidence: 'high' | 'medium' | 'low';
+  evidence?: string;
+}
+
+export interface SecurityHeadersAudit {
+  grade: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F';
+  score: number;
+  passCount: number;
+  failCount: number;
+  findings: {
+    header: string;
+    value?: string;
+    status: 'pass' | 'fail';
+    importance: 'critical' | 'high' | 'medium' | 'low';
+    description: string;
+    recommendation: string;
+  }[];
+}
+
 interface SpiderAttackSurfaceViewProps {
   onPivotToSoc?: (ip: string) => void;
   onPivotToForensics?: (url: string) => void;
   onPivotToSwarm?: (target: string) => void;
+}
+
+// Client-side Heuristic Tech Detector
+function extractTechFromClient(headers: Record<string, string>, html: string): DetectedTechnology[] {
+  const techs: DetectedTechnology[] = [];
+  const server = (headers['server'] || '').toLowerCase();
+  const xPowered = (headers['x-powered-by'] || '').toLowerCase();
+  const via = (headers['via'] || '').toLowerCase();
+  const lowerHtml = (html || '').toLowerCase();
+
+  // Web Servers
+  if (server.includes('nginx')) techs.push({ name: 'Nginx', category: 'Web Server', confidence: 'high', evidence: headers['server'] });
+  if (server.includes('apache')) techs.push({ name: 'Apache HTTP Server', category: 'Web Server', confidence: 'high', evidence: headers['server'] });
+  if (server.includes('caddy')) techs.push({ name: 'Caddy Server', category: 'Web Server', confidence: 'high', evidence: headers['server'] });
+  if (server.includes('iis') || server.includes('microsoft-iis')) techs.push({ name: 'Microsoft IIS', category: 'Web Server', confidence: 'high', evidence: headers['server'] });
+  if (server.includes('litespeed')) techs.push({ name: 'LiteSpeed', category: 'Web Server', confidence: 'high', evidence: headers['server'] });
+
+  // CDNs / Reverse Proxies
+  if (server.includes('cloudflare') || headers['cf-ray']) techs.push({ name: 'Cloudflare', category: 'CDN / WAF', confidence: 'high', evidence: headers['cf-ray'] ? `CF-Ray: ${headers['cf-ray']}` : headers['server'] });
+  if (via.includes('cloudfront') || headers['x-amz-cf-id']) techs.push({ name: 'Amazon CloudFront', category: 'CDN / WAF', confidence: 'high', evidence: via || 'x-amz-cf-id header' });
+  if (server.includes('akamai') || headers['x-akamai-transformed']) techs.push({ name: 'Akamai', category: 'CDN / WAF', confidence: 'high', evidence: headers['server'] || 'Akamai' });
+  if (via.includes('fastly') || headers['x-fastly-request-id']) techs.push({ name: 'Fastly', category: 'CDN / WAF', confidence: 'high', evidence: via });
+
+  // Backend Frameworks & Runtimes
+  if (xPowered.includes('express')) techs.push({ name: 'Express.js', category: 'Backend Framework', confidence: 'high', evidence: headers['x-powered-by'] });
+  if (xPowered.includes('php') || lowerHtml.includes('.php')) techs.push({ name: 'PHP', category: 'Backend Language', confidence: 'high', evidence: headers['x-powered-by'] || '.php route signatures' });
+  if (xPowered.includes('asp.net') || headers['x-aspnet-version']) techs.push({ name: 'ASP.NET', category: 'Backend Framework', confidence: 'high', evidence: headers['x-powered-by'] || 'ASP.NET' });
+  if (headers['x-generator']?.toLowerCase().includes('drupal')) techs.push({ name: 'Drupal CMS', category: 'CMS', confidence: 'high', evidence: headers['x-generator'] });
+
+  // Frontend & UI
+  if (lowerHtml.includes('react') || lowerHtml.includes('_next') || lowerHtml.includes('__next_data__')) {
+    techs.push({ name: 'React / Next.js', category: 'Frontend Framework', confidence: 'high', evidence: 'DOM script / __NEXT_DATA__' });
+  }
+  if (lowerHtml.includes('vue') || lowerHtml.includes('__nuxt')) {
+    techs.push({ name: 'Vue / Nuxt.js', category: 'Frontend Framework', confidence: 'high', evidence: 'Vue DOM instance / Nuxt tokens' });
+  }
+  if (lowerHtml.includes('wp-content') || lowerHtml.includes('wp-includes')) {
+    techs.push({ name: 'WordPress', category: 'CMS / Blog', confidence: 'high', evidence: '/wp-content/ directory structure' });
+  }
+  if (lowerHtml.includes('tailwind') || lowerHtml.includes('tailwindcss')) {
+    techs.push({ name: 'Tailwind CSS', category: 'UI Framework', confidence: 'medium', evidence: 'Utility classes & Tailwind markers' });
+  }
+  if (lowerHtml.includes('bootstrap') || lowerHtml.includes('bootstrap.min.css')) {
+    techs.push({ name: 'Bootstrap', category: 'UI Framework', confidence: 'medium', evidence: 'Bootstrap CSS styles' });
+  }
+  if (lowerHtml.includes('jquery') || lowerHtml.includes('jquery.min.js')) {
+    techs.push({ name: 'jQuery', category: 'JavaScript Library', confidence: 'medium', evidence: 'jQuery library inclusion' });
+  }
+
+  return techs;
+}
+
+// Client-side Security Headers Auditor
+function generateClientSecurityAudit(headers: Record<string, string>): SecurityHeadersAudit {
+  const findings: SecurityHeadersAudit['findings'] = [];
+  let passCount = 0;
+  let failCount = 0;
+
+  // HSTS
+  if (headers['strict-transport-security']) {
+    passCount++;
+    findings.push({
+      header: 'Strict-Transport-Security',
+      value: headers['strict-transport-security'],
+      status: 'pass',
+      importance: 'critical',
+      description: 'HSTS is enforced, mitigating SSL-stripping man-in-the-middle attacks.',
+      recommendation: 'Maintain configuration.',
+    });
+  } else {
+    failCount++;
+    findings.push({
+      header: 'Strict-Transport-Security',
+      status: 'fail',
+      importance: 'critical',
+      description: 'Missing HSTS header allows users to connect via unencrypted HTTP.',
+      recommendation: 'Add Strict-Transport-Security: max-age=31536000; includeSubDomains.',
+    });
+  }
+
+  // Content-Security-Policy
+  if (headers['content-security-policy']) {
+    passCount++;
+    findings.push({
+      header: 'Content-Security-Policy',
+      value: headers['content-security-policy'].substring(0, 80) + '...',
+      status: 'pass',
+      importance: 'high',
+      description: 'CSP mitigates Cross-Site Scripting (XSS) and data injection.',
+      recommendation: 'Ensure unsafe-inline is restricted.',
+    });
+  } else {
+    failCount++;
+    findings.push({
+      header: 'Content-Security-Policy',
+      status: 'fail',
+      importance: 'high',
+      description: 'Missing CSP leaves endpoints vulnerable to reflected and stored XSS.',
+      recommendation: 'Define a strict CSP policy.',
+    });
+  }
+
+  // X-Frame-Options
+  if (headers['x-frame-options']) {
+    passCount++;
+    findings.push({
+      header: 'X-Frame-Options',
+      value: headers['x-frame-options'],
+      status: 'pass',
+      importance: 'medium',
+      description: 'Mitigates UI redressing and Clickjacking attacks.',
+      recommendation: 'Consider frame-ancestors in CSP.',
+    });
+  } else {
+    failCount++;
+    findings.push({
+      header: 'X-Frame-Options',
+      status: 'fail',
+      importance: 'medium',
+      description: 'Missing X-Frame-Options allows page embedding in malicious iframes.',
+      recommendation: 'Set X-Frame-Options to DENY or SAMEORIGIN.',
+    });
+  }
+
+  // X-Content-Type-Options
+  if (headers['x-content-type-options']) {
+    passCount++;
+    findings.push({
+      header: 'X-Content-Type-Options',
+      value: headers['x-content-type-options'],
+      status: 'pass',
+      importance: 'medium',
+      description: 'Prevents browser MIME-sniffing away from declared content-type.',
+      recommendation: 'Keep nosniff configured.',
+    });
+  } else {
+    failCount++;
+    findings.push({
+      header: 'X-Content-Type-Options',
+      status: 'fail',
+      importance: 'medium',
+      description: 'MIME sniffing can lead to executable script execution from uploaded media.',
+      recommendation: 'Set X-Content-Type-Options: nosniff.',
+    });
+  }
+
+  // Referrer-Policy
+  if (headers['referrer-policy']) {
+    passCount++;
+    findings.push({
+      header: 'Referrer-Policy',
+      value: headers['referrer-policy'],
+      status: 'pass',
+      importance: 'low',
+      description: 'Controls referrer information sent in outbound requests.',
+      recommendation: 'Maintain strict-origin-when-cross-origin.',
+    });
+  } else {
+    failCount++;
+    findings.push({
+      header: 'Referrer-Policy',
+      status: 'fail',
+      importance: 'low',
+      description: 'Missing Referrer-Policy may leak sensitive query parameters in URL headers.',
+      recommendation: 'Set Referrer-Policy: strict-origin-when-cross-origin.',
+    });
+  }
+
+  // Permissions-Policy
+  if (headers['permissions-policy']) {
+    passCount++;
+    findings.push({
+      header: 'Permissions-Policy',
+      value: headers['permissions-policy'],
+      status: 'pass',
+      importance: 'low',
+      description: 'Restricts access to browser APIs like geolocation, camera, and microphone.',
+      recommendation: 'Maintain configuration.',
+    });
+  } else {
+    failCount++;
+    findings.push({
+      header: 'Permissions-Policy',
+      status: 'fail',
+      importance: 'low',
+      description: 'Missing Permissions-Policy allows iframes to request sensitive browser features.',
+      recommendation: 'Define explicit Permissions-Policy (camera=(), microphone=(), geolocation=()).',
+    });
+  }
+
+  const score = Math.round((passCount / (passCount + failCount || 1)) * 100);
+  let grade: SecurityHeadersAudit['grade'] = 'F';
+  if (score >= 90) grade = 'A+';
+  else if (score >= 80) grade = 'A';
+  else if (score >= 65) grade = 'B';
+  else if (score >= 50) grade = 'C';
+  else if (score >= 35) grade = 'D';
+
+  return { grade, score, passCount, failCount, findings };
+}
+
+// Universal CORS-tolerant probe fetcher
+async function fetchProbeWithFallbacks(targetUrl: string): Promise<{ status: number; headers: Record<string, string>; text: string; url: string } | null> {
+  // 1. Try local Node serverless proxy (/api/proxy)
+  try {
+    const pRes = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`, {
+      signal: AbortSignal.timeout(6000),
+    });
+    if (pRes.ok) {
+      const pData = await pRes.json();
+      if (pData.success) {
+        return {
+          status: pData.status,
+          headers: pData.headers || {},
+          text: pData.body || '',
+          url: pData.url || targetUrl,
+        };
+      }
+    }
+  } catch {}
+
+  // 2. Try open CORS proxy (api.allorigins.win)
+  try {
+    const aoRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (aoRes.ok) {
+      const aoData = await aoRes.json();
+      if (aoData.contents) {
+        const hdrs: Record<string, string> = {};
+        if (aoData.status?.response_headers) {
+          Object.entries(aoData.status.response_headers).forEach(([k, v]) => {
+            hdrs[k.toLowerCase()] = String(v);
+          });
+        }
+        return {
+          status: aoData.status?.http_code || 200,
+          headers: hdrs,
+          text: aoData.contents,
+          url: targetUrl,
+        };
+      }
+    }
+  } catch {}
+
+  // 3. Try direct fetch (if allowed by remote or local network)
+  try {
+    let clean = targetUrl;
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
+    }
+    const dRes = await fetch(clean, { signal: AbortSignal.timeout(3500) });
+    const hdrs: Record<string, string> = {};
+    dRes.headers.forEach((val, k) => { hdrs[k.toLowerCase()] = val; });
+    const txt = await dRes.text();
+    return {
+      status: dRes.status,
+      headers: hdrs,
+      text: txt,
+      url: dRes.url || clean,
+    };
+  } catch {}
+
+  return null;
 }
 
 export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = ({
@@ -56,6 +343,8 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
   const [emails, setEmails] = useState<HarvestedEmail[]>([]);
   const [robotsRoutes, setRobotsRoutes] = useState<string[]>([]);
   const [rawHeaders, setRawHeaders] = useState<Record<string, string>>({});
+  const [technologies, setTechnologies] = useState<DetectedTechnology[]>([]);
+  const [securityAudit, setSecurityAudit] = useState<SecurityHeadersAudit | null>(null);
   const [targetIp, setTargetIp] = useState<string | null>(null);
 
   // Helper: DNS-over-HTTPS A record resolver
@@ -82,14 +371,14 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
     }
   };
 
-  // Main Spider & Exposure Engine Execution (100% Real Results)
+  // Main Spider & Exposure Engine Execution
   const handleExecuteSpider = async () => {
     const raw = targetDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     if (!raw) return;
 
     setIsScanning(true);
     setProgressPercent(5);
-    setScanPhase(`Phase 1/5: Resolving root domain DNS & CNAME via Cloudflare DoH...`);
+    setScanPhase(`Phase 1/5: Initializing DNS resolution & DoH discovery for ${raw}...`);
 
     const discoveredSubdomains = new Set<string>();
     discoveredSubdomains.add(raw);
@@ -99,9 +388,12 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
     const newEmails = new Set<string>();
     const newRobotsRoutes: string[] = [];
     const discoveredAssetsMap = new Map<string, DiscoveredAsset>();
+    let targetHeaders: Record<string, string> = {};
+    let targetTechs: DetectedTechnology[] = [];
+    let targetAudit: SecurityHeadersAudit | null = null;
 
     try {
-      // 1. Resolve Root Domain A-record
+      // 1. Resolve Root Domain A-record via Cloudflare DoH
       const rootDns = await resolveDoH(raw);
       if (rootDns) {
         setTargetIp(rootDns.ip);
@@ -141,7 +433,7 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
       }
 
       // 3. HackerTarget Passive DNS Lookup
-      setProgressPercent(40);
+      setProgressPercent(35);
       setScanPhase(`Phase 3/5: Querying HackerTarget Passive DNS host tables...`);
       try {
         const htRes = await fetch(`https://api.hackertarget.com/hostsearch/?q=${encodeURIComponent(raw)}`, {
@@ -174,11 +466,233 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
         console.warn('HackerTarget lookup fallback:', err);
       }
 
-      // 4. DNS Live Verification of Top Subdomains
-      setProgressPercent(60);
-      setScanPhase(`Phase 4/5: Verifying live resolution across ${discoveredSubdomains.size} subdomains...`);
-      const subList = Array.from(discoveredSubdomains).slice(0, 25);
+      // 4. Server-Side Deep Reconnaissance Crawler (/api/crawl)
+      setProgressPercent(50);
+      setScanPhase(`Phase 4/5: Invoking Deep Recon Crawler & Technology Fingerprinter...`);
+      try {
+        const crawlRes = await fetch('/api/crawl', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: raw }),
+          signal: AbortSignal.timeout(10000),
+        });
 
+        if (crawlRes.ok) {
+          const crawlJson = await crawlRes.json();
+          if (crawlJson.success && crawlJson.data) {
+            const d = crawlJson.data;
+
+            // Target IP
+            if (d.osint?.target_ip && d.osint.target_ip !== 'Unknown') {
+              setTargetIp(d.osint.target_ip);
+              if (discoveredAssetsMap.has(raw)) {
+                const cur = discoveredAssetsMap.get(raw)!;
+                discoveredAssetsMap.set(raw, { ...cur, ip: d.osint.target_ip });
+              }
+            }
+
+            // Subdomains
+            if (Array.isArray(d.subdomains)) {
+              d.subdomains.forEach((s: string) => discoveredSubdomains.add(s));
+            }
+
+            // Emails
+            if (Array.isArray(d.emails)) {
+              d.emails.forEach((em: string) => newEmails.add(em));
+            }
+
+            // Robots & Disallowed routes
+            if (d.osint?.robots_txt) {
+              const r = d.osint.robots_txt;
+              if (Array.isArray(r.disallow)) newRobotsRoutes.push(...r.disallow);
+              if (Array.isArray(r.allow)) newRobotsRoutes.push(...r.allow);
+              if (Array.isArray(r.sitemaps)) newRobotsRoutes.push(...r.sitemaps);
+            }
+
+            // Sensitive files from server crawl
+            if (Array.isArray(d.osint?.sensitive_files)) {
+              d.osint.sensitive_files.forEach((sf: any) => {
+                newExposures.push({
+                  id: `exp-${Date.now()}-${sf.path}`,
+                  path: sf.path,
+                  url: sf.url,
+                  status: sf.status,
+                  severity: sf.path.includes('.git') || sf.path.includes('.env') ? 'CRITICAL' : sf.interesting ? 'HIGH' : 'INFO',
+                  evidence: sf.notes || `Discovered ${sf.path} on target`,
+                  type: sf.path.includes('.git') ? 'GIT_REPOSITORY' : sf.path.includes('.env') ? 'ENV_FILE' : sf.path.includes('robots') ? 'ROBOTS_DISALLOW' : sf.path.includes('security.txt') ? 'SECURITY_TXT' : 'API_DOCS',
+                });
+              });
+            }
+
+            // Security Headers & Tech
+            if (d.osint?.security_headers) {
+              targetAudit = d.osint.security_headers;
+              if (d.metadata?.server) {
+                targetHeaders['server'] = d.metadata.server;
+              }
+              if (d.metadata?.content_type) {
+                targetHeaders['content-type'] = d.metadata.content_type;
+              }
+              if (Array.isArray(d.osint.security_headers.findings)) {
+                d.osint.security_headers.findings.forEach((f: any) => {
+                  if (f.value) {
+                    targetHeaders[f.header.toLowerCase()] = f.value;
+                  }
+                });
+              }
+            }
+
+            if (Array.isArray(d.osint?.technologies)) {
+              targetTechs = d.osint.technologies;
+            }
+          }
+        }
+      } catch (crawlErr) {
+        console.warn('Local /api/crawl endpoint bypass:', crawlErr);
+      }
+
+      // 5. Active Target Probing & Live Header Verification (via /api/proxy or Fallbacks)
+      setProgressPercent(75);
+      setScanPhase(`Phase 5/5: Active probing sensitive endpoints & verifying security headers...`);
+
+      const probeList = [
+        { path: '/', type: 'ROOT' as const },
+        { path: '/robots.txt', type: 'ROBOTS_DISALLOW' as const },
+        { path: '/.well-known/security.txt', type: 'SECURITY_TXT' as const },
+        { path: '/.git/HEAD', type: 'GIT_REPOSITORY' as const },
+        { path: '/.env', type: 'ENV_FILE' as const },
+        { path: '/sitemap.xml', type: 'SITEMAP_INDEX' as const },
+        { path: '/graphql', type: 'GRAPHQL_SCHEMA' as const },
+        { path: '/swagger.json', type: 'API_DOCS' as const },
+        { path: '/.DS_Store', type: 'DS_STORE' as const },
+      ];
+
+      for (const probe of probeList) {
+        const probeTargetUrl = `${raw}${probe.path}`;
+        const probeResult = await fetchProbeWithFallbacks(probeTargetUrl);
+        if (probeResult) {
+          // Collect headers from root or robots
+          if (probe.path === '/' || probe.path === '/robots.txt' || Object.keys(targetHeaders).length === 0) {
+            targetHeaders = { ...targetHeaders, ...probeResult.headers };
+          }
+
+          const status = probeResult.status;
+          const text = probeResult.text;
+
+          // Extract emails from body
+          const emailMatches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+          emailMatches.forEach(em => {
+            const c = em.toLowerCase().trim();
+            if (!c.match(/\.(png|jpg|jpeg|gif|svg|webp|css|js|ico|woff|woff2|ttf)$/i)) {
+              newEmails.add(c);
+            }
+          });
+
+          // Robots parsing
+          if (probe.path === '/robots.txt' && status === 200) {
+            const disallowMatches = (text.match(/Disallow:\s*([^\r\n#]+)/gi) || []).map(l => l.replace(/Disallow:\s*/i, '').trim()).filter(Boolean);
+            const allowMatches = (text.match(/Allow:\s*([^\r\n#]+)/gi) || []).map(l => l.replace(/Allow:\s*/i, '').trim()).filter(Boolean);
+            const sitemapMatches = (text.match(/Sitemap:\s*([^\r\n#]+)/gi) || []).map(l => l.replace(/Sitemap:\s*/i, '').trim()).filter(Boolean);
+
+            newRobotsRoutes.push(...disallowMatches, ...allowMatches, ...sitemapMatches);
+
+            if (!newExposures.some(e => e.path === '/robots.txt')) {
+              newExposures.push({
+                id: `exp-${Date.now()}-robots`,
+                path: '/robots.txt',
+                url: probeResult.url,
+                status,
+                severity: disallowMatches.length > 5 ? 'MEDIUM' : 'INFO',
+                evidence: `Exposes ${disallowMatches.length} hidden routes and ${sitemapMatches.length} sitemaps`,
+                type: 'ROBOTS_DISALLOW',
+              });
+            }
+          }
+
+          // Security.txt parsing
+          if (probe.path === '/.well-known/security.txt' && status === 200) {
+            if (!newExposures.some(e => e.path === '/.well-known/security.txt')) {
+              newExposures.push({
+                id: `exp-${Date.now()}-sectxt`,
+                path: '/.well-known/security.txt',
+                url: probeResult.url,
+                status,
+                severity: 'INFO',
+                evidence: `RFC 9116 security disclosure published with contact info`,
+                type: 'SECURITY_TXT',
+              });
+            }
+          }
+
+          // Git repository exposure
+          if (probe.path === '/.git/HEAD' && (text.includes('ref: refs/heads/') || (status === 200 && text.trim().length === 41))) {
+            if (!newExposures.some(e => e.path === '/.git/HEAD')) {
+              newExposures.push({
+                id: `exp-${Date.now()}-git`,
+                path: '/.git/HEAD',
+                url: probeResult.url,
+                status,
+                severity: 'CRITICAL',
+                evidence: `Exposed Git repository metadata: "${text.slice(0, 80).trim()}"`,
+                type: 'GIT_REPOSITORY',
+              });
+            }
+          }
+
+          // Env file exposure
+          if (probe.path === '/.env' && status === 200 && (text.includes('APP_') || text.includes('DB_') || text.includes('KEY=') || text.includes('SECRET='))) {
+            if (!newExposures.some(e => e.path === '/.env')) {
+              newExposures.push({
+                id: `exp-${Date.now()}-env`,
+                path: '/.env',
+                url: probeResult.url,
+                status,
+                severity: 'CRITICAL',
+                evidence: `Environment secrets exposed in plain text: "${text.slice(0, 100)}"`,
+                type: 'ENV_FILE',
+              });
+            }
+          }
+
+          // GraphQL probe
+          if (probe.path === '/graphql' && status === 200 && text.includes('__schema')) {
+            if (!newExposures.some(e => e.path === '/graphql')) {
+              newExposures.push({
+                id: `exp-${Date.now()}-graphql`,
+                path: '/graphql',
+                url: probeResult.url,
+                status,
+                severity: 'HIGH',
+                evidence: 'Public GraphQL endpoint exposes full introspection schema',
+                type: 'GRAPHQL_SCHEMA',
+              });
+            }
+          }
+
+          // Swagger API Docs
+          if (probe.path === '/swagger.json' && status === 200 && (text.includes('swagger') || text.includes('openapi'))) {
+            if (!newExposures.some(e => e.path === '/swagger.json')) {
+              newExposures.push({
+                id: `exp-${Date.now()}-swagger`,
+                path: '/swagger.json',
+                url: probeResult.url,
+                status,
+                severity: 'MEDIUM',
+                evidence: 'Public Swagger/OpenAPI specification exposed',
+                type: 'API_DOCS',
+              });
+            }
+          }
+
+          // Detect tech from headers and text if not already populated
+          if (targetTechs.length === 0) {
+            targetTechs = extractTechFromClient(targetHeaders, text);
+          }
+        }
+      }
+
+      // 6. Subdomain DNS Live Verification
+      const subList = Array.from(discoveredSubdomains).slice(0, 25);
       for (let i = 0; i < subList.length; i++) {
         const sub = subList[i];
         if (!discoveredAssetsMap.has(sub)) {
@@ -204,169 +718,26 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
         }
       }
 
-      // 5. Active Sensitive File & Misconfiguration Probing (Origin Endpoint)
-      setProgressPercent(80);
-      setScanPhase(`Phase 5/5: Probing sensitive paths (/.git/HEAD, .env, robots.txt, security.txt)...`);
-      const targetOrigin = `https://${raw}`;
-
-      const probeTargets = [
-        { path: '/robots.txt', type: 'ROBOTS_DISALLOW' as const },
-        { path: '/.git/HEAD', type: 'GIT_REPOSITORY' as const },
-        { path: '/.env', type: 'ENV_FILE' as const },
-        { path: '/.well-known/security.txt', type: 'SECURITY_TXT' as const },
-        { path: '/sitemap.xml', type: 'SITEMAP_INDEX' as const },
-        { path: '/graphql', type: 'GRAPHQL_SCHEMA' as const },
-        { path: '/swagger.json', type: 'API_DOCS' as const },
-        { path: '/.DS_Store', type: 'DS_STORE' as const },
-      ];
-
-      for (const probe of probeTargets) {
-        try {
-          const res = await fetch(`${targetOrigin}${probe.path}`, {
-            headers: { 'Accept': '*/*' },
-            signal: AbortSignal.timeout(3500),
-          }).catch(() => null);
-
-          if (res) {
-            const status = res.status;
-            let text = '';
-            try { text = await res.text(); } catch {}
-
-            // Save response headers on root/robots
-            if (probe.path === '/robots.txt' || probe.path === '/.well-known/security.txt') {
-              const headersObj: Record<string, string> = {};
-              res.headers.forEach((val, k) => { headersObj[k.toLowerCase()] = val; });
-              setRawHeaders(headersObj);
-            }
-
-            // A. Git Repository Exposure Check
-            if (probe.type === 'GIT_REPOSITORY') {
-              if (text.includes('ref: refs/heads/') || (status === 200 && text.trim().length === 41)) {
-                newExposures.push({
-                  id: `exp-${Date.now()}-git`,
-                  path: probe.path,
-                  url: `${targetOrigin}${probe.path}`,
-                  status,
-                  severity: 'CRITICAL',
-                  evidence: `Exposed Git repository metadata: "${text.slice(0, 80).trim()}"`,
-                  type: 'GIT_REPOSITORY',
-                });
-              } else if (status === 200 || status === 403) {
-                newExposures.push({
-                  id: `exp-${Date.now()}-git-stat`,
-                  path: probe.path,
-                  url: `${targetOrigin}${probe.path}`,
-                  status,
-                  severity: status === 200 ? 'HIGH' : 'INFO',
-                  evidence: `HTTP ${status} returned for git path`,
-                  type: 'GIT_REPOSITORY',
-                });
-              }
-            }
-
-            // B. Environment File Exposure Check
-            else if (probe.type === 'ENV_FILE') {
-              if (status === 200 && (text.includes('APP_') || text.includes('DB_') || text.includes('KEY=') || text.includes('SECRET='))) {
-                newExposures.push({
-                  id: `exp-${Date.now()}-env`,
-                  path: probe.path,
-                  url: `${targetOrigin}${probe.path}`,
-                  status,
-                  severity: 'CRITICAL',
-                  evidence: `Environment secrets exposed in plain text: "${text.slice(0, 100)}"`,
-                  type: 'ENV_FILE',
-                });
-              }
-            }
-
-            // C. Robots.txt Analysis & Disallowed Route Extraction
-            else if (probe.type === 'ROBOTS_DISALLOW' && status === 200) {
-              const disallowMatches = (text.match(/Disallow:\s*([^\r\n]+)/gi) || []).map(l => l.replace(/Disallow:\s*/i, '').trim());
-              const allowMatches = (text.match(/Allow:\s*([^\r\n]+)/gi) || []).map(l => l.replace(/Allow:\s*/i, '').trim());
-              const combinedRoutes = Array.from(new Set([...disallowMatches, ...allowMatches]));
-              newRobotsRoutes.push(...combinedRoutes);
-
-              newExposures.push({
-                id: `exp-${Date.now()}-robots`,
-                path: probe.path,
-                url: `${targetOrigin}${probe.path}`,
-                status,
-                severity: disallowMatches.length > 5 ? 'MEDIUM' : 'INFO',
-                evidence: `Exposes ${disallowMatches.length} hidden disallowed endpoints in robots.txt`,
-                type: 'ROBOTS_DISALLOW',
-              });
-
-              // Extract any emails in robots.txt comments
-              const emailMatches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-              emailMatches.forEach(em => newEmails.add(em.toLowerCase()));
-            }
-
-            // D. Security.txt (RFC 9116)
-            else if (probe.type === 'SECURITY_TXT' && status === 200) {
-              const contactMatches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-              contactMatches.forEach(em => newEmails.add(em.toLowerCase()));
-
-              newExposures.push({
-                id: `exp-${Date.now()}-sec-txt`,
-                path: probe.path,
-                url: `${targetOrigin}${probe.path}`,
-                status,
-                severity: 'INFO',
-                evidence: `RFC 9116 Security contact published (${contactMatches.join(', ') || 'URL link'})`,
-                type: 'SECURITY_TXT',
-              });
-            }
-
-            // E. GraphQL Introspection Probe
-            else if (probe.type === 'GRAPHQL_SCHEMA') {
-              if (status === 200 && text.includes('__schema')) {
-                newExposures.push({
-                  id: `exp-${Date.now()}-graphql`,
-                  path: probe.path,
-                  url: `${targetOrigin}${probe.path}`,
-                  status,
-                  severity: 'HIGH',
-                  evidence: 'Full GraphQL schema introspection enabled on public endpoint',
-                  type: 'GRAPHQL_SCHEMA',
-                });
-              }
-            }
-
-            // F. API Documentation Exposure
-            else if (probe.type === 'API_DOCS' && status === 200 && (text.includes('swagger') || text.includes('openapi'))) {
-              newExposures.push({
-                id: `exp-${Date.now()}-api`,
-                path: probe.path,
-                url: `${targetOrigin}${probe.path}`,
-                status,
-                severity: 'MEDIUM',
-                evidence: 'Public Swagger/OpenAPI specification exposed',
-                type: 'API_DOCS',
-              });
-            }
-          }
-        } catch {
-          // Path probe error / timeout
-        }
-      }
-
-      // Convert Discovered Assets
+      // Commit State
       const assetsList = Array.from(discoveredAssetsMap.values());
       setAssets(assetsList);
       setExposures(newExposures);
-      setRobotsRoutes(newRobotsRoutes);
+      setRobotsRoutes(Array.from(new Set(newRobotsRoutes)));
+      setRawHeaders(targetHeaders);
+      setTechnologies(targetTechs);
+      setSecurityAudit(targetAudit || generateClientSecurityAudit(targetHeaders));
 
       const emailList: HarvestedEmail[] = Array.from(newEmails).map((em, i) => ({
         id: `email-${i + 1}`,
         email: em,
-        source: 'Web Metadata / Security.txt',
+        source: em.includes('hostmaster') ? 'DNS SOA Record' : 'Web Metadata / Security.txt',
       }));
       setEmails(emailList);
 
       setProgressPercent(100);
-      setScanPhase(`Recon complete. ${assetsList.length} assets verified, ${newExposures.length} exposures detected, ${emailList.length} contacts found.`);
+      setScanPhase(`Recon complete. ${assetsList.length} assets, ${newExposures.length} exposures, ${emailList.length} emails, ${targetTechs.length} technologies identified.`);
     } catch (e: any) {
-      setScanPhase(`Recon scan encountered network error: ${e.message}`);
+      setScanPhase(`Recon scan encountered error: ${e.message}`);
     } finally {
       setIsScanning(false);
     }
@@ -430,7 +801,7 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
             ATTACK SURFACE & EXPOSURE SPIDER
           </span>
           <span className="text-[10px] px-1.5 py-0.2 bg-neutral-900 border border-neutral-800 text-neutral-400">
-            PASSIVE CRT + DOH DNS + EXPOSURE PROBER
+            PASSIVE CRT + DOH DNS + CORS-FREE PROBE ENGINE
           </span>
         </div>
 
@@ -518,25 +889,18 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            Subdomains & Assets ({assets.length})
+            Subdomains ({assets.length})
           </button>
-
           <button
             onClick={() => setActiveDeckTab('EXPOSURES')}
-            className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
               activeDeckTab === 'EXPOSURES'
                 ? 'bg-neutral-800 text-white'
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            <span>Sensitive Exposures</span>
-            <span className={`text-[10px] px-1 py-0.2 font-bold ${
-              exposures.some(e => e.severity === 'CRITICAL') ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-neutral-900 text-neutral-400'
-            }`}>
-              {exposures.length}
-            </span>
+            Exposures ({exposures.length})
           </button>
-
           <button
             onClick={() => setActiveDeckTab('EMAILS')}
             className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
@@ -545,9 +909,8 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            Harvested Contacts ({emails.length})
+            Harvested Emails ({emails.length})
           </button>
-
           <button
             onClick={() => setActiveDeckTab('ROBOTS')}
             className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
@@ -558,7 +921,6 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
           >
             Robots & Routes ({robotsRoutes.length})
           </button>
-
           <button
             onClick={() => setActiveDeckTab('HEADERS')}
             className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
@@ -567,84 +929,84 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            Headers & Tech Stack
+            Headers & Tech ({Object.keys(rawHeaders).length + technologies.length})
           </button>
         </div>
 
-        {activeDeckTab === 'ASSETS' && (
-          <div className="relative min-w-[200px]">
-            <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Filter subdomains or IPs..."
-              className="w-full pl-8 pr-3 py-1 bg-[#000000] border border-neutral-800 text-neutral-200 placeholder-neutral-600 text-xs focus:outline-none focus:border-neutral-600"
-            />
-          </div>
-        )}
+        {/* Global Tab Filter */}
+        <div className="relative w-64">
+          <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Filter current view..."
+            className="w-full pl-7 pr-3 py-1 bg-[#000000] border border-neutral-800 text-neutral-300 placeholder-neutral-600 text-xs font-mono focus:outline-none focus:border-neutral-600"
+          />
+        </div>
       </div>
 
-      {/* 4. Main Telemetry Body */}
+      {/* 4. Active Tab Content Canvas */}
       <div className="flex-1 overflow-auto bg-[#000000]">
-        {/* Tab 1: Subdomains & Assets */}
+        {/* Tab 1: Discovered Subdomains & Assets */}
         {activeDeckTab === 'ASSETS' && (
-          filteredAssets.length === 0 ? (
+          assets.length === 0 ? (
             <div className="p-16 text-center text-xs text-neutral-600">
-              {isScanning ? 'Executing multi-source asset discovery...' : 'No assets scanned yet. Enter target domain and click "Launch Recon Spider".'}
+              No discovered assets to display. Click "Launch Recon Spider" to start real target enumeration.
             </div>
           ) : (
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#050505] border-b border-neutral-800 text-[10px] uppercase text-neutral-500 sticky top-0 z-10">
-                <tr>
-                  <th className="p-2.5 font-bold">STATUS</th>
-                  <th className="p-2.5 font-bold">FQDN SUBDOMAIN</th>
-                  <th className="p-2.5 font-bold">RESOLVED IPv4</th>
-                  <th className="p-2.5 font-bold">CNAME POINTER</th>
-                  <th className="p-2.5 font-bold">SOURCE</th>
-                  <th className="p-2.5 font-bold text-right">ACTIONS</th>
+              <thead>
+                <tr className="border-b border-neutral-800 bg-[#050505] text-neutral-500 text-[10px] uppercase">
+                  <th className="p-2.5 font-bold">FQDN Subdomain</th>
+                  <th className="p-2.5 font-bold">Resolved IP</th>
+                  <th className="p-2.5 font-bold">CNAME Alias</th>
+                  <th className="p-2.5 font-bold">Status</th>
+                  <th className="p-2.5 font-bold">Source</th>
+                  <th className="p-2.5 font-bold text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-900 font-mono text-[11px]">
-                {filteredAssets.map(asset => {
-                  const isActive = asset.status === 'ACTIVE';
+              <tbody className="divide-y divide-neutral-900 font-mono">
+                {filteredAssets.map((asset) => {
                   const isDangling = asset.status === 'DANGLING_CNAME';
+                  const isUnresolved = asset.status === 'UNRESOLVED';
 
                   return (
-                    <tr key={asset.id} className="transition-colors hover:bg-neutral-950">
-                      <td className="p-2.5 whitespace-nowrap">
+                    <tr
+                      key={asset.id}
+                      className={`hover:bg-neutral-950 transition-colors ${
+                        isDangling ? 'bg-rose-950/20' : ''
+                      }`}
+                    >
+                      <td className="p-2.5 font-bold text-white flex items-center gap-1.5">
+                        {isDangling && <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />}
+                        <span className="select-all">{asset.fqdn}</span>
+                      </td>
+                      <td className="p-2.5 text-cyan-400 select-all">
+                        {asset.ip}
+                      </td>
+                      <td className="p-2.5 text-neutral-400 select-all">
+                        {asset.cname || '—'}
+                      </td>
+                      <td className="p-2.5">
                         <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase ${
-                          isActive ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
                           isDangling ? 'bg-rose-950 text-rose-300 border border-rose-800' :
-                          'bg-neutral-900 text-neutral-500 border border-neutral-800'
+                          isUnresolved ? 'bg-neutral-900 text-neutral-500 border border-neutral-800' :
+                          'bg-emerald-950 text-emerald-300 border border-emerald-800'
                         }`}>
                           {asset.status}
                         </span>
                       </td>
-
-                      <td className="p-2.5 whitespace-nowrap font-bold text-white select-all">
-                        {asset.fqdn}
-                      </td>
-
-                      <td className="p-2.5 whitespace-nowrap font-mono text-cyan-400 select-all">
-                        {asset.ip}
-                      </td>
-
-                      <td className="p-2.5 max-w-xs text-neutral-400 truncate">
-                        {asset.cname || <span className="text-neutral-600">-</span>}
-                      </td>
-
-                      <td className="p-2.5 whitespace-nowrap text-neutral-500 text-[10px]">
+                      <td className="p-2.5 text-neutral-500 text-[11px]">
                         {asset.source}
                       </td>
-
-                      <td className="p-2.5 text-right whitespace-nowrap">
+                      <td className="p-2.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {asset.ip !== 'Unresolved' && onPivotToSoc && (
+                          {asset.ip !== 'Unresolved' && (
                             <button
-                              onClick={() => onPivotToSoc(asset.ip)}
+                              onClick={() => onPivotToSoc?.(asset.ip)}
                               className="px-2 py-0.5 border border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-[10px] cursor-pointer"
-                              title="Pivot to SOC Investigation"
+                              title="Pivot to SOC Center"
                             >
                               SOC
                             </button>
@@ -753,6 +1115,12 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
                       >
                         {copiedKey === em.id ? <Check className="w-3 h-3 text-emerald-400 inline" /> : 'Copy'}
                       </button>
+                      <a
+                        href={`mailto:${em.email}`}
+                        className="p-1 border border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white text-[10px]"
+                      >
+                        Mailto
+                      </a>
                     </div>
                   </div>
                 ))}
@@ -770,7 +1138,7 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
           ) : (
             <div className="p-4 space-y-2">
               <div className="flex items-center justify-between text-xs text-neutral-400 font-bold uppercase mb-2">
-                <span>DISALLOWED / ALLOWED ROUTES HARVESTED FROM ROBOTS.TXT ({robotsRoutes.length})</span>
+                <span>DISALLOWED / ALLOWED ROUTES HARVESTED FROM ROBOTS.TXT & SITEMAPS ({robotsRoutes.length})</span>
                 <button
                   onClick={() => copyText(robotsRoutes.join('\n'), 'routes-all')}
                   className="text-cyan-400 hover:text-cyan-300 text-[11px] flex items-center gap-1 cursor-pointer"
@@ -781,11 +1149,19 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {robotsRoutes.map((route, i) => (
-                  <div key={i} className="p-2 bg-[#050505] border border-neutral-850 text-xs font-mono text-neutral-300 truncate select-all">
-                    {route}
-                  </div>
-                ))}
+                {robotsRoutes
+                  .filter(r => !searchFilter || r.toLowerCase().includes(searchFilter.toLowerCase()))
+                  .map((route, i) => (
+                    <div key={i} className="p-2 bg-[#050505] border border-neutral-850 text-xs font-mono text-neutral-300 truncate select-all flex items-center justify-between">
+                      <span className="truncate">{route}</span>
+                      <button
+                        onClick={() => copyText(route, `route-${i}`)}
+                        className="text-neutral-500 hover:text-white p-0.5"
+                      >
+                        {copiedKey === `route-${i}` ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5" />}
+                      </button>
+                    </div>
+                  ))}
               </div>
             </div>
           )
@@ -793,22 +1169,121 @@ export const SpiderAttackSurfaceView: React.FC<SpiderAttackSurfaceViewProps> = (
 
         {/* Tab 5: Headers & Tech Stack */}
         {activeDeckTab === 'HEADERS' && (
-          Object.keys(rawHeaders).length === 0 ? (
+          Object.keys(rawHeaders).length === 0 && technologies.length === 0 ? (
             <div className="p-16 text-center text-xs text-neutral-600">
-              No HTTP response headers captured yet. Launch spider to inspect live server banners.
+              No HTTP response headers or technologies captured yet. Launch spider to inspect live server banners.
             </div>
           ) : (
-            <div className="p-4 space-y-2">
-              <div className="text-xs text-neutral-400 font-bold uppercase mb-2">
-                LIVE HTTP RESPONSE HEADERS AUDIT
-              </div>
-              <div className="border border-neutral-800 divide-y divide-neutral-900 bg-[#050505]">
-                {Object.entries(rawHeaders).map(([k, v], i) => (
-                  <div key={i} className="p-2.5 flex items-center justify-between text-xs font-mono">
-                    <span className="text-cyan-400 font-bold">{k}</span>
-                    <span className="text-neutral-300 max-w-xl truncate select-all">{v}</span>
+            <div className="p-4 space-y-6">
+              {/* Section A: Detected Technologies */}
+              <div>
+                <div className="flex items-center justify-between text-xs text-neutral-400 font-bold uppercase mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                    DETECTED TECHNOLOGIES & PLATFORMS ({technologies.length})
+                  </span>
+                </div>
+                {technologies.length === 0 ? (
+                  <div className="p-4 border border-neutral-850 bg-[#050505] text-xs text-neutral-500">
+                    No distinctive server banners or frontend framework signatures identified.
                   </div>
-                ))}
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {technologies.map((t, idx) => (
+                      <div key={idx} className="p-3 bg-[#050505] border border-neutral-800 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-bold text-xs">{t.name}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 bg-neutral-900 border border-neutral-800 text-cyan-400">
+                            {t.category}
+                          </span>
+                        </div>
+                        {t.evidence && (
+                          <div className="text-[10px] text-neutral-500 font-mono truncate select-all">
+                            Signature: {t.evidence}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Section B: Security Headers Compliance Audit */}
+              {securityAudit && (
+                <div>
+                  <div className="flex items-center justify-between text-xs text-neutral-400 font-bold uppercase mb-2">
+                    <span className="flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                      SECURITY HEADERS COMPLIANCE AUDIT
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-neutral-400">Score: {securityAudit.score}/100</span>
+                      <span className={`px-2 py-0.5 text-xs font-bold ${
+                        securityAudit.grade === 'A+' || securityAudit.grade === 'A' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
+                        securityAudit.grade === 'B' || securityAudit.grade === 'C' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
+                        'bg-rose-950 text-rose-300 border border-rose-800'
+                      }`}>
+                        GRADE {securityAudit.grade}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border border-neutral-800 divide-y divide-neutral-900 bg-[#050505]">
+                    {securityAudit.findings.map((f, i) => (
+                      <div key={i} className="p-3 flex items-start justify-between gap-4 text-xs font-mono">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            {f.status === 'pass' ? (
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            ) : (
+                              <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            )}
+                            <span className="text-white font-bold">{f.header}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-neutral-900 border border-neutral-800 text-neutral-400 uppercase">
+                              {f.importance}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-neutral-400">
+                            {f.description}
+                          </div>
+                          {f.status === 'fail' && (
+                            <div className="text-[10px] text-amber-400/90">
+                              Remediation: {f.recommendation}
+                            </div>
+                          )}
+                        </div>
+
+                        {f.value && (
+                          <div className="text-[10px] text-neutral-500 max-w-xs truncate select-all">
+                            {f.value}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section C: Live HTTP Response Headers */}
+              <div>
+                <div className="flex items-center justify-between text-xs text-neutral-400 font-bold uppercase mb-2">
+                  <span>LIVE HTTP RESPONSE HEADERS AUDIT ({Object.keys(rawHeaders).length})</span>
+                  <button
+                    onClick={() => copyText(JSON.stringify(rawHeaders, null, 2), 'headers-all')}
+                    className="text-cyan-400 hover:text-cyan-300 text-[11px] flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedKey === 'headers-all' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>Copy All Headers</span>
+                  </button>
+                </div>
+                <div className="border border-neutral-800 divide-y divide-neutral-900 bg-[#050505]">
+                  {Object.entries(rawHeaders).map(([k, v], i) => (
+                    <div key={i} className="p-2.5 flex items-center justify-between text-xs font-mono">
+                      <span className="text-cyan-400 font-bold">{k}</span>
+                      <span className="text-neutral-300 max-w-xl truncate select-all">{v}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )
