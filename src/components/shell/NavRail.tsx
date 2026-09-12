@@ -65,11 +65,11 @@ export const NavRail: React.FC<NavRailProps> = ({
       case 'soc':
       default:
         return [
-          { id: 'globe', label: '3D Attack Globe', icon: <Globe2 className="w-4 h-4" /> },
-          { id: 'stream', label: 'Live Attacks Stream', icon: <ShieldAlert className="w-4 h-4" /> },
-          { id: 'countries', label: 'Country Threat Mesh', icon: <Radio className="w-4 h-4" /> },
-          { id: 'ids', label: 'IDS Anomaly Detector', icon: <Activity className="w-4 h-4 text-emerald-400" /> },
-          { id: 'parser', label: 'Raw Log Parser', icon: <FileCode className="w-4 h-4 text-blue-400" /> },
+          { id: 'siem', label: 'SIEM Workbench', icon: <Terminal className="w-4 h-4 text-cyan-400" /> },
+          { id: 'mitre', label: 'ATT&CK Matrix', icon: <ShieldAlert className="w-4 h-4 text-rose-400" /> },
+          { id: 'soar', label: 'SOAR Playbooks', icon: <ShieldCheck className="w-4 h-4 text-emerald-400" /> },
+          { id: 'ids', label: 'IDS Sensors', icon: <Activity className="w-4 h-4 text-amber-400" /> },
+          { id: 'globe', label: '3D Geo-Heatmap', icon: <Globe2 className="w-4 h-4 text-indigo-400" /> },
         ];
     }
   };
